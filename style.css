@@ -12,13 +12,12 @@
   --surface: #161616;
   --raised: #1e1e1e;
   --hover: #2d2d2d;
-  --line: #55555c;
-  --quiet-line: #333338;
-  --text: #f5f5f6;
-  --muted: #a1a1a8;
-  --accent: #7c5cff;
-  --accent-ink: #000;
-  --error: #ff9393;
+  --line: #555;
+  --quiet-line: #333;
+  --text: #f5f5f5;
+  --muted: #a1a1a1;
+  --accent: #d6d6d6;
+  --error: #d6d6d6;
   --edge: clamp(16px, 6vw, 48px);
   --pill: 999px;
   --panel-radius: 24px;
@@ -36,6 +35,9 @@
   --menu-radius: 14px;
   --border: rgb(255 255 255 / .10);
   --border-strong: rgb(255 255 255 / .20);
+  --glass-fill: rgb(255 255 255 / .10);
+  --glass-hover: rgb(255 255 255 / .17);
+  --glass-edge: rgb(255 255 255 / .28);
 }
 
 *,
@@ -131,6 +133,11 @@ body.pause-background .dots::before {
   border-radius: 4px;
 }
 
+.model-mark[data-brand="qwen"] {
+  background-image: url("data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjIwIiBoZWlnaHQ9IjIwIiB2aWV3Qm94PSIwIDAgMjAgMjAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxnIGlkPSJRd2VuIGxvZ28iIGNsaXAtcGF0aD0idXJsKCNjbGlwMF8wXzgpIj4KPHBhdGggaWQ9IlZlY3RvciIgZD0iTTE2LjQyNzcgMi4zNTQxN0gxMS41MDUyQzExLjUwNTIgMi4xNDUgMTEuNDUwMiAxLjkzNSAxMS4zNDE5IDEuNzQ3NUwxMC42ODI3IDAuNjA2NjY3QzEwLjU3NiAwLjQyMjU1NyAxMC40MjI5IDAuMjY5NjQ2IDEwLjIzODcgMC4xNjMxOTRDMTAuMDU0NCAwLjA1Njc0MjYgOS44NDU0OCAwLjAwMDQ3MjU1NCA5LjYzMjY5IDBMOC4zMTYwMyAwQzcuODgyNjkgMCA3LjQ4MjY5IDAuMjI5MTY3IDcuMjY2MDMgMC42MDY2NjdMNS4yNDkzNiA0LjA5ODMzQzUuMTQyODQgNC4yODIzMiA1LjA4Njc1IDQuNDkxMTUgNS4wODY3NSA0LjcwMzc1QzUuMDg2NzUgNC45MTYzNSA1LjE0Mjg0IDUuMTI1MTggNS4yNDkzNiA1LjMwOTE3TDUuOTA4NTMgNi40NTA4M0M2LjEyNTE5IDYuODI0MTcgNi41MjUxOSA3LjA1NjY3IDYuOTU4NTMgNy4wNTY2N0gxNi40MjUyQzE2Ljg1ODUgNy4wNTY2NyAxNy4yNTg1IDYuODI3NSAxNy40NzUyIDYuNDVMMTguMTMzNSA1LjMwODMzQzE4LjIzOTcgNS4xMjQ1NCAxOC4yOTU3IDQuOTE2MDIgMTguMjk1NyA0LjcwMzc1QzE4LjI5NTcgNC40OTE0OCAxOC4yMzk3IDQuMjgyOTYgMTguMTMzNSA0LjA5OTE3TDE3LjQ3NTIgMi45NTc1QzE3LjM2ODUgMi43NzMzOSAxNy4yMTU0IDIuNjIwNDggMTcuMDMxMiAyLjUxNDAzQzE2Ljg0NjkgMi40MDc1OCAxNi42MzggMi4zNTEzMSAxNi40MjUyIDIuMzUwODNMMTYuNDI3NyAyLjM1NDE3Wk0wLjE2MjY5MyA4LjI1NDE3TDIuNjIxODYgMTIuNTE2N0MyLjQzODMgMTIuNjIzMSAyLjI4NTc1IDEyLjc3NTYgMi4xNzkzNiAxMi45NTkyTDEuNTIwMTkgMTQuMTAwOEMxLjQxMzgzIDE0LjI4NDcgMS4zNTc4MyAxNC40OTM0IDEuMzU3ODMgMTQuNzA1OEMxLjM1NzgzIDE0LjkxODMgMS40MTM4MyAxNS4xMjY5IDEuNTIwMTkgMTUuMzEwOEwyLjE3ODUzIDE2LjQ1MjVDMi4zOTUxOSAxNi44MjU4IDIuNzk1MTkgMTcuMDU4MyAzLjIyODUzIDE3LjA1ODNINy4yNjE4NkM3LjY5NTE5IDE3LjA1ODMgOC4wOTUxOSAxNi44MjkyIDguMzExODYgMTYuNDUxN0w4Ljk3MDE5IDE1LjMxQzkuMDc2NCAxNS4xMjYyIDkuMTMyMzIgMTQuOTE3NyA5LjEzMjMyIDE0LjcwNTRDOS4xMzIzMiAxNC40OTMxIDkuMDc2NCAxNC4yODQ2IDguOTcwMTkgMTQuMTAwOEw0LjIzODUzIDUuOTAyNUM0LjEzMTg0IDUuNzE4MzkgMy45Nzg3NCA1LjU2NTQ4IDMuNzk0NSA1LjQ1OTAzQzMuNjEwMjUgNS4zNTI1OCAzLjQwMTMxIDUuMjk2MzEgMy4xODg1MyA1LjI5NTgzSDEuODcxODZDMS40Mzg1MyA1LjI5NTgzIDEuMDM4NTMgNS41MjU4MyAwLjgyMTg2IDUuOTAyNUwwLjE2MzUyNiA3LjA0NDE3QzAuMDU3MTYzNCA3LjIyODA1IDAuMDAxMTU4OTUgNy40MzY3MyAwLjAwMTE1ODk1IDcuNjQ5MTdDMC4wMDExNTg5NSA3Ljg2MTYgMC4wNTcxNjM0IDguMDcwMjggMC4xNjM1MjYgOC4yNTQxN00xMy40MDM1IDE5LjM5MzNMMTUuODYyNyAxNS4xMzA4QzE2LjA0MzUgMTUuMjM1IDE2LjI1MzUgMTUuMjk0MiAxNi40Njk0IDE1LjI5NDJIMTcuNzg3N0MxOC4yMjEgMTUuMjk0MiAxOC42MjEgMTUuMDY1IDE4LjgzNzcgMTQuNjg3NUwxOS40OTYgMTMuNTQ1OEMxOS42MDIyIDEzLjM2MiAxOS42NTgyIDEzLjE1MzUgMTkuNjU4MiAxMi45NDEyQzE5LjY1ODIgMTIuNzI5IDE5LjYwMjIgMTIuNTIwNSAxOS40OTYgMTIuMzM2N0wxNy40Nzk0IDguODQ0MTdDMTcuMzcyNyA4LjY2MDE4IDE3LjIxOTggOC41MDczNSAxNy4wMzU3IDguNDAwOUMxNi44NTE2IDguMjk0NDYgMTYuNjQyOCA4LjIzODEyIDE2LjQzMDIgOC4yMzc1SDE1LjExMTlDMTQuNjc4NSA4LjIzNzUgMTQuMjc4NSA4LjQ2NzUgMTQuMDYyNyA4Ljg0NDE3TDkuMzMxMDMgMTcuMDQyNUM5LjIyNDY2IDE3LjIyNjQgOS4xNjg2NiAxNy40MzUxIDkuMTY4NjYgMTcuNjQ3NUM5LjE2ODY2IDE3Ljg1OTkgOS4yMjQ2NiAxOC4wNjg2IDkuMzMxMDMgMTguMjUyNUw5Ljk4OTM2IDE5LjM5NDJDMTAuMjA2IDE5Ljc2NzUgMTAuNjA2IDIwIDExLjAzOTQgMjBIMTIuMzU3N0MxMi43OTEgMjAgMTMuMTkxIDE5Ljc3MDggMTMuNDA3NyAxOS4zOTMzSDEzLjQwMzVaIiBmaWxsPSIjQTk5NUZGIi8+CjwvZz4KPGRlZnM+CjxjbGlwUGF0aCBpZD0iY2xpcDBfMF84Ij4KPHJlY3Qgd2lkdGg9IjIwIiBoZWlnaHQ9IjIwIiBmaWxsPSJ3aGl0ZSIvPgo8L2NsaXBQYXRoPgo8L2RlZnM+Cjwvc3ZnPgo=");
+  filter: none;
+}
+
 .model-options {
   display: grid;
   gap: 8px;
@@ -157,15 +164,28 @@ body.pause-background .dots::before {
 .model-option small { color: var(--muted); }
 .connection-status { text-align: center; color: var(--muted); font-size: 13px; }
 
-.sign-in-button {
-  min-height: 44px;
-  padding: 0 16px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--pill);
-  background: var(--composer);
+#signInAction {
+  margin-top: clamp(16px, 4dvh, 32px);
 }
 
-.sign-in-button:hover { background: var(--raised); }
+.sign-in-button,
+#signInSubmit {
+  min-height: 44px;
+  padding-inline: 22px;
+  border: 1px solid var(--glass-edge);
+  border-top-color: var(--text);
+  border-radius: var(--pill);
+  background: var(--glass-fill);
+  color: var(--text);
+  font-weight: 600;
+  backdrop-filter: blur(12px);
+  transition: background-color var(--fast) var(--ease);
+}
+
+.sign-in-button:hover,
+#signInSubmit:hover {
+  background: var(--glass-hover);
+}
 
 dialog .motion-option {
   display: flex;
@@ -370,11 +390,6 @@ dialog .motion-option input {
   width: 18px;
   height: 18px;
   background: center / contain no-repeat url("data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjIyIiBoZWlnaHQ9IjIyIiB2aWV3Qm94PSIwIDAgMjIgMjIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxnIGlkPSJTZW5kIGFycm93Ij4KPHBhdGggaWQ9IlZlY3RvciIgZD0iTTEwLjA4MzMgMTEuOTE2N0wxLjgzMzMzIDguMjVMMjAuMTY2NyAxLjgzMzMzTDEzLjc1IDIwLjE2NjdMMTAuMDgzMyAxMS45MTY3Wk0yMC4xNjY3IDEuODMzMzNMMTAuMDgzMyAxMS45MTY3IiBzdHJva2Utd2lkdGg9IjEuMzc1IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIHN0cm9rZT0iI0Y1RjVGNiIvPgo8L2c+Cjwvc3ZnPgo=");
-  transition: transform var(--fast) var(--ease);
-}
-
-.send:hover:not(:disabled) .send-mark {
-  transform: translate(1px, -1px);
 }
 
 .send:not([hidden]) .send-mark,
@@ -410,6 +425,7 @@ dialog .motion-option input {
 
 /* Qwen team mark from https://github.com/QwenLM */
 .model-mark {
+  filter: grayscale(1);
   flex: 0 0 20px;
   width: 20px;
   height: 20px;
@@ -654,18 +670,6 @@ dialog .key-error {
   background: var(--raised);
 }
 
-.dialog-actions button[type="submit"] {
-  border-color: transparent;
-  background: var(--accent);
-  color: var(--accent-ink);
-  font-weight: 600;
-}
-
-.dialog-actions button[type="submit"]:hover {
-  filter: brightness(1.08);
-  transform: translateY(-1px);
-}
-
 .dialog-actions button:active {
   transform: translateY(1px);
 }
@@ -689,10 +693,6 @@ dialog .key-error {
     transition: none !important;
   }
 
-  .send:hover:not(:disabled) .send-mark {
-    transform: none;
-  }
-
   dialog::backdrop {
     transition: none;
   }
@@ -700,7 +700,6 @@ dialog .key-error {
   dialog,
   dialog[open],
   .icon-button:active:not(:disabled),
-  .dialog-actions button[type="submit"]:hover,
   .dialog-actions button:active {
     transform: none;
   }
