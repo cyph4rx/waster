@@ -141,6 +141,7 @@
   </template>
 
   <script src="./prism.js"></script>
+  <script src="./markdown-it.js"></script>
   <script>
     const endpoint = "/api/chat";
     const byId = id => document.getElementById(id);
@@ -169,6 +170,10 @@
     let active = null;
     let lastReply = null;
     let composerMotion;
+    let followLatest = true;
+    let scrollFrame = 0;
+    let previousScrollTop = 0;
+    let autoScrollTop = null;
 
     void loadModels();
     byId("model").addEventListener("animationend", event => {
@@ -176,23 +181,60 @@
     });
 
     function updateComposer() {
-      const keepBottom = nearBottom();
       prompt.style.height = "auto";
       prompt.style.height = Math.max(24, prompt.scrollHeight) + "px";
       send.disabled = !configured || (signInRequired && !sessionToken) || !model || !prompt.value.trim();
       send.setAttribute("aria-disabled", String(send.disabled));
       send.hidden = Boolean(active);
       stop.hidden = !active;
-      if (keepBottom) scrollToLatest();
     }
 
-    function nearBottom() {
-      return thread.scrollHeight - thread.scrollTop - thread.clientHeight < 72;
+    function setFollowLatest(enabled) {
+      followLatest = enabled;
+      thread.classList.toggle("follow-latest", enabled);
+      if (enabled) scheduleFollow();
+      else if (scrollFrame) {
+        cancelAnimationFrame(scrollFrame);
+        scrollFrame = 0;
+      }
     }
 
-    function scrollToLatest() {
-      thread.scrollTop = thread.scrollHeight;
+    function scheduleFollow() {
+      if (!followLatest || thread.hidden || scrollFrame) return;
+      scrollFrame = requestAnimationFrame(() => {
+        scrollFrame = 0;
+        if (!followLatest || thread.hidden) return;
+        const current = thread.scrollTop;
+        const end = Math.max(0, thread.scrollHeight - thread.clientHeight);
+        const remaining = end - current;
+        if (remaining <= 1) return;
+        const next = motionPreference.matches || remaining <= 3
+          ? end
+          : current + Math.max(2, remaining * .30);
+        thread.scrollTop = next;
+        autoScrollTop = thread.scrollTop;
+        if (followLatest && end - autoScrollTop > 1) scheduleFollow();
+      });
     }
+
+    thread.addEventListener("scroll", () => {
+      const current = thread.scrollTop;
+      if (current !== autoScrollTop && current !== previousScrollTop) {
+        if (current < previousScrollTop) setFollowLatest(false);
+        else if (thread.scrollHeight - current - thread.clientHeight < 80) setFollowLatest(true);
+      }
+      previousScrollTop = current;
+      autoScrollTop = null;
+    }, { passive: true });
+    thread.addEventListener("wheel", event => {
+      if (event.deltaY < 0 && thread.scrollTop > 0 && !event.target.closest(".code-scroll, .reply-table")) {
+        setFollowLatest(false);
+      }
+    }, { passive: true });
+    const scrollObserver = new ResizeObserver(scheduleFollow);
+    scrollObserver.observe(messages);
+    scrollObserver.observe(thread);
+    setFollowLatest(true);
 
     function showChat(inConversation) {
       if (app.classList.contains("is-chat") === inConversation) return;
@@ -389,6 +431,7 @@
       history.length = 0;
       lastReply = null;
       messages.replaceChildren();
+      setFollowLatest(true);
       prompt.value = "";
       showChat(false);
       updateComposer();
@@ -405,6 +448,7 @@
       messages.append(message);
       prompt.value = "";
       showChat(true);
+      setFollowLatest(true);
       updateComposer();
       if (matchMedia("(pointer: fine)").matches) prompt.focus({ preventScroll: true });
       else prompt.blur();
@@ -458,7 +502,7 @@
       "c++": "cpp", "c#": "csharp", shell: "bash", ps1: "powershell", luau: "lua"
     }));
 
-    function createCodeBlock(target, language) {
+    function createCodeBlock(language) {
       const card = byId("codeTemplate").content.firstElementChild.cloneNode(true);
       const name = languageNames.get(language) ?? (language || "Code");
       const code = card.querySelector("code");
@@ -478,8 +522,7 @@
           copy.classList.remove("is-copied");
         }, 1600);
       });
-      target.append(card);
-      return { code, grammarName };
+      return { card, code, grammarName };
     }
 
     function highlightCode(block) {
@@ -509,66 +552,101 @@
       block.code.replaceChildren(highlighted);
     }
 
+    const markdown = window.markdownit?.({ html: false, breaks: true, linkify: true });
+    if (markdown) {
+      markdown.disable("image");
+      markdown.validateLink = url => /^(https?:\/\/|mailto:)/i.test(url);
+      const renderInlineCode = markdown.renderer.rules.code_inline;
+      markdown.renderer.rules.code_inline = (tokens, index, ...args) => {
+        tokens[index].attrJoin("class", "inline-code");
+        return renderInlineCode(tokens, index, ...args);
+      };
+      markdown.renderer.rules.link_open = (tokens, index, options, _env, renderer) => {
+        tokens[index].attrSet("target", "_blank");
+        tokens[index].attrSet("rel", "noopener noreferrer");
+        return renderer.renderToken(tokens, index, options);
+      };
+    }
+
     function renderReply(output) {
-      let pending = "";
-      let block = null;
-      const preview = document.createElement("span");
-      preview.className = "stream-caret";
-      preview.setAttribute("aria-hidden", "true");
-      const partialLine = document.createTextNode("");
-      output.append(partialLine);
-      output.append(preview);
+      let source = "";
+      let timer;
+      let rendered = [];
+      const caret = document.createElement("span");
+      caret.className = "stream-caret";
+      caret.setAttribute("aria-hidden", "true");
+      output.append(caret);
 
-      function appendLine(line, newline) {
-        const fence = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(line);
-        if (block) {
-          if (fence && fence[1][0] === block.fence[0] &&
-            fence[1].length >= block.fence.length && !fence[2].trim()) {
-            highlightCode(block);
-            block = null;
-          } else {
-            block.code.append(line + newline);
-          }
+      function render(finished) {
+        caret.remove();
+        if (!markdown) {
+          output.textContent = source;
+          if (!finished) output.append(caret);
           return;
         }
-        if (fence && !(fence[1][0] === "`" && fence[2].includes("`"))) {
-          const language = (/^[\w+#.-]{1,24}/.exec(fence[2].trim())?.[0] ?? "").toLowerCase();
-          block = { ...createCodeBlock(output, language), fence: fence[1] };
-          return;
-        }
+        const template = document.createElement("template");
+        template.innerHTML = markdown.render(source);
+        const blocks = [...template.content.children];
+        const next = blocks.map((block, index) => {
+          // Keep finished blocks in place during streaming, including their focus and scroll state.
+          const key = block.outerHTML;
+          const previous = rendered[index];
+          const plainCode = block.matches("pre") && !finished && index === blocks.length - 1;
+          if (previous?.key === key && previous.plainCode === plainCode) return previous;
 
-        const fragments = line.split(/(`[^`]+`)/g);
-        for (let index = 0; index < fragments.length; index++) {
-          if (index % 2 === 0) output.append(fragments[index]);
-          else {
-            const code = document.createElement("code");
-            code.className = "inline-code";
-            code.textContent = fragments[index].slice(1, -1);
-            output.append(code);
+          if (block.matches("pre")) {
+            const code = block.querySelector("code");
+            const language = code.className.match(/^language-([\w+#.-]{1,24})$/i)?.[1]?.toLowerCase() ?? "";
+            const existing = previous?.plainCode && previous.language === language ? previous.codeBlock : null;
+            const codeBlock = existing ?? createCodeBlock(language);
+            codeBlock.code.textContent = code.textContent;
+            if (!plainCode) highlightCode(codeBlock);
+            return { key, plainCode, language, codeBlock, node: codeBlock.card };
           }
+
+          if (block.matches("table")) {
+            const wrapper = document.createElement("div");
+            wrapper.className = "reply-table";
+            wrapper.tabIndex = 0;
+            wrapper.setAttribute("aria-label", "Table");
+            wrapper.append(block);
+            return { key, plainCode, node: wrapper };
+          }
+          return { key, plainCode, node: block };
+        });
+
+        const nextNodes = new Set(next.map(block => block.node));
+        for (const block of rendered) {
+          if (!nextNodes.has(block.node)) block.node.remove();
         }
-        output.append(newline);
+        for (let index = 0; index < next.length; index++) {
+          const node = next[index].node;
+          const current = output.children[index];
+          if (current !== node) output.insertBefore(node, current ?? null);
+        }
+        rendered = next;
+
+        if (!finished) {
+          const tail = next.at(-1);
+          const inlineTarget = tail?.node.matches("p, h1, h2, h3, h4, h5, h6") ? tail.node : output;
+          (tail?.codeBlock?.code ?? inlineTarget).append(caret);
+        }
       }
 
       return {
         push(chunk) {
-          pending += chunk;
-          const lines = pending.split("\n");
-          pending = lines.pop();
-          preview.remove();
-          partialLine.remove();
-          for (const line of lines) appendLine(line.replace(/\r$/, ""), "\n");
-          // Keep partial lines visible without committing a possible split fence.
-          const possibleFence = /^ {0,3}(?:`{1,2}|~{1,2})$|^ {0,3}(?:`{3,}|~{3,})/.test(pending);
-          partialLine.data = possibleFence ? "" : pending;
-          (block?.code ?? output).append(partialLine, preview);
+          source += chunk;
+          if (timer !== undefined) return;
+          timer = setTimeout(() => {
+            timer = undefined;
+            render(false);
+          }, 60);
         },
         finish() {
-          preview.remove();
-          partialLine.remove();
-          if (pending) appendLine(pending.replace(/\r$/, ""), "");
-          if (block) highlightCode(block);
-        }
+          clearTimeout(timer);
+          render(true);
+        },
+        cancel() { clearTimeout(timer); }
       };
     }
 
@@ -584,7 +662,6 @@
       status.textContent = "Waiting for a reply…";
       announcement.textContent = status.textContent;
       updateComposer();
-      scrollToLatest();
       let replyText = "";
 
       try {
@@ -607,11 +684,9 @@
         }
         for await (const token of streamReply(response.body)) {
           if (active !== controller) return;
-          const follow = nearBottom();
+          if (!replyText) status.textContent = "";
           replyText += token;
           renderer.push(token);
-          status.textContent = "";
-          if (follow) scrollToLatest();
         }
         if (active !== controller) return;
         if (!replyText.trim()) throw new Error("Groq returned an empty reply. Try again.");
@@ -627,7 +702,6 @@
         announcement.textContent = status.textContent;
       } finally {
         if (active === controller) {
-          const follow = nearBottom();
           renderer.finish();
           output.removeAttribute("aria-busy");
           active = null;
@@ -636,8 +710,7 @@
           copy.hidden = !replyText.trim();
           copy.addEventListener("click", () => void copyText(replyText, output, "Reply"));
           updateComposer();
-          if (follow) scrollToLatest();
-        }
+        } else renderer.cancel();
       }
     }
 

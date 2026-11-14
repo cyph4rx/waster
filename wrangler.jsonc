@@ -2,16 +2,37 @@
   "name": "waster",
   "main": "worker.mjs",
   "compatibility_date": "2026-11-14",
-  "compatibility_flags": ["enable_request_signal"],
+  "compatibility_flags": [
+    "enable_request_signal"
+  ],
   "workers_dev": true,
-  "build": { "command": "node build-assets.mjs" },
+  "build": {
+    "command": "node build-assets.mjs"
+  },
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
-    "run_worker_first": ["/api/*"]
+    "run_worker_first": [
+      "/api/*"
+    ]
   },
   "ratelimits": [
-    { "name": "LOGIN_LIMIT", "namespace_id": "19720601", "simple": { "limit": 10, "period": 60 } },
-    { "name": "CHAT_LIMIT", "namespace_id": "19720602", "simple": { "limit": 20, "period": 60 } }
-  ]
+    {
+      "name": "LOGIN_LIMIT",
+      "namespace_id": "19720601",
+      "simple": {
+        "limit": 10,
+        "period": 60
+      }
+    },
+    {
+      "name": "CHAT_LIMIT",
+      "namespace_id": "19720602",
+      "simple": {
+        "limit": 20,
+        "period": 60
+      }
+    }
+  ],
+  "vars": {}
 }

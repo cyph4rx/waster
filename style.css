@@ -595,6 +595,10 @@ dialog .motion-option input:disabled { opacity: .6; }
   overscroll-behavior: contain;
 }
 
+.thread.follow-latest {
+  overflow-anchor: none;
+}
+
 .messages {
   width: min(100%, var(--chat-width));
   margin: 0 auto;
@@ -656,6 +660,79 @@ dialog .motion-option input:disabled { opacity: .6; }
   overflow-wrap: anywhere;
 }
 
+.agent .message-body:has(> *) {
+  white-space: normal;
+}
+
+.agent .message-body > :first-child { margin-block-start: 0; }
+.agent .message-body > :last-child { margin-block-end: 0; }
+
+.agent .message-body :is(p, ul, ol, blockquote) {
+  margin-block: 0 12px;
+}
+
+.agent .message-body :is(h1, h2, h3, h4, h5, h6) {
+  margin-block: 20px 8px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.agent .message-body :is(h1, h2) { font-size: clamp(19px, 4vw, 23px); }
+.agent .message-body :is(h3, h4, h5, h6) { font-size: 16px; }
+.agent .message-body :is(ul, ol) { padding-inline-start: 24px; }
+.agent .message-body li :is(ul, ol) { margin-block: 4px; }
+.agent .message-body li > p { margin-block: 0 4px; }
+.agent .message-body li + li { margin-block-start: 4px; }
+.agent .message-body strong { font-weight: 600; }
+.agent .message-body a { text-decoration-thickness: 1px; text-underline-offset: 3px; }
+
+.agent .message-body blockquote {
+  margin-inline: 0;
+  padding-inline-start: 12px;
+  border-inline-start: 2px solid var(--line);
+  color: var(--muted);
+}
+
+.agent .message-body blockquote > :last-child { margin-block-end: 0; }
+
+.agent .message-body hr {
+  margin-block: 16px;
+  border: 0;
+  border-top: 1px solid var(--border-strong);
+}
+
+.reply-table {
+  overflow: auto;
+  margin-block: 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--control-radius);
+  background: var(--code-bg);
+  scrollbar-color: var(--line) transparent;
+}
+
+.reply-table table {
+  width: 100%;
+  min-width: max-content;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.reply-table :is(th, td) {
+  max-width: 320px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.reply-table th {
+  background: var(--code-header);
+  text-align: start;
+  font-weight: 600;
+}
+
+.reply-table tr:last-child td { border-bottom: 0; }
+.reply-table:focus-visible { outline-offset: -3px; }
+
+.agent .message-body :not(pre) > code,
 .inline-code {
   padding: .12em .35em;
   border: 1px solid var(--border);
