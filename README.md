@@ -1,34 +1,49 @@
-# Wäster
+<div align="center">
+  <h1>W<strong>ä</strong>ster</h1>
+  <p>the water waster</p>
+  <p>
+    <img alt="Node.js 22" src="https://img.shields.io/badge/Node.js-22-333333?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white&amp;labelColor=161616">
+    <img alt="AI via Groq" src="https://img.shields.io/badge/AI-Groq-333333?style=flat-square&amp;labelColor=161616">
+    <img alt="Code highlighting by Prism" src="https://img.shields.io/badge/Code-Prism-333333?style=flat-square&amp;labelColor=161616">
+  </p>
+</div>
 
-Run the app with Node.js 22 or newer. It uses Node's built-in HTTP server and has no package dependencies.
+Wäster is a simple AI chat with a moving dotted background and a small message bar. Pick a model, send a message, and copy code straight from the reply.
 
-## Run locally
+- Switch between Qwen 3.8 27B, GPT-OSS 20B, and GPT-OSS 120B. The picker shows how much context each model can hold.
+- Replies stream in as the model writes. Code gets its own box with syntax colors and a **Copy** button.
+- Click the model badge to pause the background.
 
-In PowerShell, open this folder and run:
+## Run it locally
+
+You need Node.js 22 and a [Groq API key](https://console.groq.com/keys). Open this folder in PowerShell and run:
 
 ```powershell
 $groqSecret = Read-Host 'Groq API key' -AsSecureString
 $env:GROQ_API_KEY = [System.Net.NetworkCredential]::new('', $groqSecret).Password
-node server.mjs
+npm start
 ```
 
-Open http://127.0.0.1:3000. The app connects automatically using the server's key. Click the model badge to change models or pause the background.
+Open [localhost:3000](http://127.0.0.1:3000). Wäster connects using the key you just set.
 
-## Host on the web
+## Put it online for free
 
-Use a host that runs a Node process and streams responses. Set the start command to `node server.mjs` and configure these environment variables on the host:
+Push this folder to GitHub and connect it to a [free Render Web Service](https://render.com/docs/your-first-deploy). Set the build command to `npm install` and the start command to `npm start`.
 
-- `GROQ_API_KEY` — your Groq API key, stored as a server secret.
-- `WASTER_PASSWORD` — a separate strong password for site access.
-- `HOST` — `0.0.0.0`.
-- `PORT` — use the port provided by the host, or leave the default of 3000.
+| Render setting | Value |
+| --- | --- |
+| `HOST` | `0.0.0.0` |
+| `GROQ_API_KEY` | Your Groq key |
+| `WASTER_PASSWORD` | A separate password for signing in to Wäster |
 
-Open the host's HTTPS URL, click **Sign in**, and enter `WASTER_PASSWORD`. The sign-in stays inside Wäster and grants access to model requests, which use your Groq account. The session is kept in memory and ends when you reload the page or after 12 hours. Use HTTPS for any non-local access. Static-only hosting cannot run the Groq connection.
+Add the key and password in Render’s **Environment** settings so they stay on the server. Open your Render HTTPS URL and click **Sign in**. Render’s free service can take a minute to wake up after sitting idle. [Render free limits](https://render.com/docs/free)
 
-## Google Sites
+## Use it in Google Sites
 
-1. Push this folder to your Git repository and deploy it as a [free Render Web Service](https://render.com/docs/your-first-deploy). Use `npm install` to build, `npm start` to start, and set the server environment variables above in Render.
-2. In Google Sites, choose **Pages → + → Full page embed** and paste the Render HTTPS URL. To embed in an existing page, use **Insert → Embed → By URL**. Publish the changes. [Google Sites embed instructions](https://support.google.com/sites/answer/90569)
-3. Open the published page and sign in inside the embedded Wäster app with your site password.
+Go to **Pages → + → Full page embed**, paste your Render URL, and publish. For an existing page, use **Insert → Embed → By URL**.
 
-The picker shows each model's published context window. Wäster caps replies at 4,096 tokens and sends the newest conversation messages that fit its conservative context estimate. Older messages remain visible in the conversation.
+Sign in with `WASTER_PASSWORD` inside the chat. It stays on the Google Sites page. [Google Sites embed guide](https://support.google.com/sites/answer/90569)
+
+### Chat limits
+
+Replies are capped at 4,096 tokens. If the chat gets too long, Wäster sends the newest messages that fit its context estimate. You can still scroll back to see the older ones.
