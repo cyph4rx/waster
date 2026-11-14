@@ -1,0 +1,147 @@
+import { createServer } from "node:http";
+import { readFile } from "node:fs/promises";
+import { createHash, timingSafeEqual } from "node:crypto";
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
+
+const { GROQ_API_KEY, WASTER_PASSWORD, HOST = "127.0.0.1", PORT = "3000" } = process.env;
+const loopback = HOST === "127.0.0.1" || HOST === "::1";
+if (!loopback && !WASTER_PASSWORD) {
+  throw new Error("Set WASTER_PASSWORD before listening on a public interface.");
+}
+
+// Groq's model pages provide the context and completion limits.
+const models = [
+  { id: "qwen/qwen3.8-27b", name: "Qwen 3.8 27B", brand: "qwen", context: 131042, output: 16384, effort: "none" },
+  { id: "openai/gpt-oss-20b", name: "GPT-OSS 20B", brand: "openai", context: 131072, output: 65536, effort: "low" },
+  { id: "openai/gpt-oss-120b", name: "GPT-OSS 120B", brand: "openai", context: 131072, output: 65536, effort: "low" }
+];
+const staticFiles = new Map([
+  ["/", ["index.html", "text/html; charset=utf-8"]],
+  ["/index.html", ["index.html", "text/html; charset=utf-8"]],
+  ["/style.css", ["style.css", "text/css; charset=utf-8"]],
+  ["/openai.png", ["openai.png", "image/png"]]
+]);
+const hash = string => createHash("sha256").update(string).digest();
+const passwordHash = WASTER_PASSWORD ? hash("waster:" + WASTER_PASSWORD) : null;
+let running = 0;
+let requests = 0;
+let resetAt = Date.now() + 60_000;
+
+function json(res, code, payload) {
+  res.writeHead(code, { "Content-Type": "application/json; charset=utf-8" });
+  res.end(JSON.stringify(payload));
+}
+
+function error(res, code, message) {
+  json(res, code, { error: { message } });
+}
+
+async function chat(req, res) {
+  if (!GROQ_API_KEY) return error(res, 503, "Set GROQ_API_KEY on the Wäster server to start chatting.");
+  if (req.headers["sec-fetch-site"] === "cross-site" || !/^application\/json(?:;|$)/i.test(req.headers["content-type"] ?? "")) {
+    return error(res, 415, "Send a same-origin JSON request.");
+  }
+  const chunks = [];
+  let bytes = 0;
+  for await (const chunk of req) {
+    bytes += chunk.length;
+    if (bytes > 1024 * 1024) {
+      res.setHeader("Connection", "close");
+      return error(res, 413, "This conversation is too large. Start a new chat or shorten the message.");
+    }
+    chunks.push(chunk);
+  }
+  let input;
+  try { input = JSON.parse(Buffer.concat(chunks).toString("utf8")); }
+  catch { return error(res, 400, "Invalid chat request."); }
+  const model = models.find(item => item.id === input?.model);
+  const messages = input?.messages;
+  if (!model || !Array.isArray(messages) || messages.length > 500 || messages.at(-1)?.role !== "user" ||
+      messages.some(message => !message || !["user", "assistant"].includes(message.role) ||
+        typeof message.content !== "string" || !message.content.trim())) {
+    return error(res, 400, "Choose a supported model and send a message.");
+  }
+  const completion = Math.min(model.output, 4096);
+  // Conservative text budget using UTF-8 byte counts plus message framing.
+  // Groq applies the exact token limit with its model tokenizer.
+  const budget = model.context - completion - 128;
+  const window = [];
+  let count = 0;
+  for (let index = messages.length - 1; index >= 0; index--) {
+    const { role, content } = messages[index];
+    count += Buffer.byteLength(content, "utf8") + 32;
+    if (count > budget) break;
+    window.unshift({ role, content });
+  }
+  if (!window.length) return error(res, 400, "This message exceeds the selected model’s context limit.");
+  if (window[0].role === "assistant") window.shift();
+  if (Date.now() >= resetAt) {
+    requests = 0;
+    resetAt = Date.now() + 60_000;
+  }
+  if (running >= 3 || requests >= 20) return error(res, 429, "Too many requests. Try again in a moment.");
+  running++;
+  requests++;
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  res.once("close", abort);
+  try {
+    const upstream = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + GROQ_API_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: model.id, messages: window, stream: true, max_completion_tokens: completion,
+        reasoning_effort: model.effort
+      }),
+      signal: AbortSignal.any([controller.signal, AbortSignal.timeout(120_000)])
+    });
+    if (!upstream.ok) {
+      const detail = await upstream.json().catch(() => null);
+      if (upstream.status === 401) return error(res, 502, "Groq rejected the server’s API key.");
+      if (upstream.status === 429) return error(res, 429, "Groq rate limit reached. Try again in a moment.");
+      if (detail?.error?.code === "context_length_exceeded") {
+        return error(res, 400, "This conversation exceeds the model’s context limit. Start a new chat.");
+      }
+      return error(res, 502, "Groq could not reply with this model. Check the model’s permissions or try another.");
+    }
+    res.writeHead(200, { "Content-Type": "text/event-stream", "X-Accel-Buffering": "no" });
+    res.flushHeaders();
+    await pipeline(Readable.fromWeb(upstream.body), res);
+  } catch {
+    if (!res.headersSent && !res.destroyed) error(res, 502, "The connection to Groq ended before a reply arrived.");
+  } finally {
+    res.off("close", abort);
+    running--;
+  }
+}
+
+createServer(async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  try {
+    if (passwordHash) {
+      const auth = /^Basic (\S+)$/i.exec(req.headers.authorization ?? "");
+      const supplied = auth ? Buffer.from(auth[1], "base64").toString("utf8") : "";
+      if (!timingSafeEqual(passwordHash, hash(supplied))) {
+        res.setHeader("WWW-Authenticate", 'Basic realm="Waster", charset="UTF-8"');
+        return error(res, 401, "Sign in to Wäster.");
+      }
+    }
+    const pathname = new URL(req.url, "http://localhost").pathname;
+    if (req.method === "POST" && pathname === "/api/chat") return await chat(req, res);
+    if (req.method === "GET" && pathname === "/api/models") {
+      return json(res, 200, { configured: Boolean(GROQ_API_KEY), models: models.map(({ effort, ...model }) => model) });
+    }
+    const file = staticFiles.get(pathname);
+    if (!file || !["GET", "HEAD"].includes(req.method)) return error(res, 404, "Page not found.");
+    const contents = await readFile(new URL(file[0], import.meta.url));
+    res.writeHead(200, { "Content-Type": file[1], "Content-Length": contents.length });
+    res.end(req.method === "HEAD" ? undefined : contents);
+  } catch {
+    if (!res.headersSent && !res.destroyed) error(res, 500, "Wäster could not complete this request.");
+    else if (!res.destroyed) res.destroy();
+  }
+}).listen(Number(PORT), HOST, () => {
+  console.log("Wäster is listening on port " + PORT + (GROQ_API_KEY ? "" : " (GROQ_API_KEY is missing)."));
+});

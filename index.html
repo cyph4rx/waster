@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <meta name="description" content="Wäster is a minimalist chat for ai.">
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'none'; style-src 'self'; script-src 'unsafe-inline'; img-src 'self' data:; font-src data:; connect-src 'self'; base-uri 'none'; form-action 'none'">
+  <title>Wäster</title>
+  <link rel="icon"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23161616'/%3E%3Ctext x='16' y='24' text-anchor='middle' fill='%23f5f5f6' font-size='24' font-family='sans-serif'%3E%C3%A4%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="./style.css">
+</head>
+
+<body>
+  <div class="dots" aria-hidden="true"></div>
+  <main class="app opening" id="app">
+    <header class="topbar" id="topbar" hidden>
+      <p class="wordmark">W<strong>ä</strong>ster</p>
+      <button class="icon-button" id="newChat" type="button" aria-label="New conversation" title="New conversation">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+          aria-hidden="true">
+          <path d="M12 5v14M5 12h14" />
+        </svg>
+      </button>
+    </header>
+
+    <section class="thread" id="thread" aria-label="Conversation" tabindex="0" hidden>
+      <div class="messages" id="messages" role="log" aria-live="off"></div>
+    </section>
+
+    <div class="dock" id="dock">
+      <div class="brand" id="brand">
+        <h1 class="wordmark">W<strong>ä</strong>ster</h1>
+        <p class="slogan">the water waster</p>
+      </div>
+      <form class="composer" id="composer">
+        <label class="visually-hidden" for="prompt">Message your agent</label>
+        <textarea id="prompt" rows="1" placeholder="Message your agent…" enterkeyhint="send"></textarea>
+        <button class="icon-button send" id="send" type="submit" aria-label="Send message" title="Send message"
+          aria-disabled="true" disabled>
+          <span class="send-mark" aria-hidden="true"></span>
+        </button>
+        <button class="icon-button stop" id="stop" type="button" aria-label="Stop response" title="Stop response"
+          hidden>
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <rect x="7" y="7" width="10" height="10" rx="2" />
+          </svg>
+        </button>
+      </form>
+      <button class="model" id="model" type="button" aria-haspopup="dialog" aria-label="Choose a model"
+        title="Choose a model">
+        <span class="model-mark" id="modelMark" aria-hidden="true"></span>
+        <span id="modelName">Choose a model</span><span class="provider" aria-hidden="true">·</span><span class="provider">via
+          Groq</span>
+        <span class="model-chevron" aria-hidden="true"></span>
+      </button>
+      <p class="connection-status" id="connectionStatus" role="status" hidden></p>
+    </div>
+    <div id="announcement" class="visually-hidden" role="status"></div>
+  </main>
+
+  <dialog id="settings" aria-labelledby="settingsTitle">
+    <div>
+      <div class="dialog-header">
+        <h2 id="settingsTitle">Choose a model</h2>
+        <button class="icon-button" id="cancel" type="button" aria-label="Close settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+            aria-hidden="true">
+            <path d="m6 6 12 12M18 6 6 18" />
+          </svg>
+        </button>
+      </div>
+      <div class="model-options" id="modelOptions"></div>
+      <p>Context includes conversation history and space for the reply.</p>
+      <label class="motion-option"><input type="checkbox" id="backgroundMotion" checked> Animate background</label>
+    </div>
+  </dialog>
+
+  <template id="replyTemplate">
+    <article class="message agent">
+      <p class="agent-name"><span class="model-mark" aria-hidden="true"></span><span class="reply-model"></span></p>
+      <div class="message-body"></div>
+      <p class="status"></p>
+      <div class="actions" hidden>
+        <button class="icon-button copy" type="button" aria-label="Copy reply" title="Copy reply">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"
+            aria-hidden="true">
+            <path d="M9 9h11v11H9zM15 9V4H4v11h5" />
+          </svg>
+        </button>
+        <button class="icon-button retry" type="button" aria-label="Regenerate reply" title="Regenerate reply">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+            stroke-linejoin="round" aria-hidden="true">
+            <path d="M20 7v5h-5M4 17v-5h5M6.1 7a7 7 0 0 1 11.6-1L20 9M4 15l2.3 3A7 7 0 0 0 18 17" />
+          </svg>
+        </button>
+      </div>
+    </article>
+  </template>
+
+  <script>
+    const endpoint = "/api/chat";
+    const byId = id => document.getElementById(id);
+    const app = byId("app");
+    const thread = byId("thread");
+    const messages = byId("messages");
+    const prompt = byId("prompt");
+    const composer = byId("composer");
+    const send = byId("send");
+    const stop = byId("stop");
+    const settings = byId("settings");
+    const modelButton = byId("model");
+    const announcement = byId("announcement");
+    const history = [];
+    let model;
+    let connected = false;
+    let active = null;
+    let lastReply = null;
+    let composerMotion;
+
+    void loadModels();
+    byId("model").addEventListener("animationend", event => {
+      if (event.target === byId("model") && event.animationName === "appear") app.classList.remove("opening");
+    });
+
+    function updateComposer() {
+      const keepBottom = nearBottom();
+      prompt.style.height = "24px";
+      prompt.style.height = prompt.scrollHeight + "px";
+      send.disabled = !connected || !model || !prompt.value.trim();
+      send.setAttribute("aria-disabled", String(send.disabled));
+      send.hidden = Boolean(active);
+      stop.hidden = !active;
+      if (keepBottom) scrollToLatest();
+    }
+
+    function nearBottom() {
+      return thread.scrollHeight - thread.scrollTop - thread.clientHeight < 72;
+    }
+
+    function scrollToLatest() {
+      thread.scrollTop = thread.scrollHeight;
+    }
+
+    function showChat(inConversation) {
+      if (app.classList.contains("is-chat") === inConversation) return;
+      const start = composer.getBoundingClientRect();
+      composerMotion?.cancel();
+      app.classList.remove("opening");
+      app.classList.toggle("is-chat", inConversation);
+      byId("topbar").hidden = !inConversation;
+      thread.hidden = !inConversation;
+      byId("brand").hidden = inConversation;
+      const appearing = inConversation ? byId("topbar") : byId("brand");
+      appearing.classList.remove("enter");
+      requestAnimationFrame(() => appearing.classList.add("enter"));
+      updateComposer();
+      if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+      const end = composer.getBoundingClientRect();
+      const tokens = getComputedStyle(app);
+      composerMotion = byId("dock").animate(
+        [{ transform: "translateY(" + (start.top - end.top) + "px)" }, { transform: "none" }],
+        { duration: parseFloat(tokens.getPropertyValue("--dur-dock")), easing: tokens.getPropertyValue("--ease").trim() }
+      );
+    }
+
+    modelButton.addEventListener("click", () => settings.showModal());
+    byId("cancel").addEventListener("click", () => settings.close());
+    byId("backgroundMotion").addEventListener("change", event => {
+      document.body.classList.toggle("pause-background", !event.target.checked);
+    });
+
+    async function loadModels() {
+      const status = byId("connectionStatus");
+      try {
+        const response = await fetch("/api/models");
+        if (!response.ok) throw new Error();
+        const config = await response.json();
+        connected = config.configured;
+        for (const option of config.models) {
+          const button = document.createElement("button");
+          button.className = "model-option";
+          button.type = "button";
+          const mark = document.createElement("span");
+          mark.className = "model-mark";
+          mark.dataset.brand = option.brand;
+          mark.setAttribute("aria-hidden", "true");
+          const name = document.createElement("span");
+          name.textContent = option.name;
+          const limit = document.createElement("small");
+          limit.textContent = option.context.toLocaleString() + " token context";
+          button.append(mark, name, limit);
+          button.addEventListener("click", () => {
+            selectModel(option);
+            settings.close();
+            announcement.textContent = option.name + " selected.";
+          });
+          byId("modelOptions").append(button);
+        }
+        if (config.models.length) selectModel(config.models[0]);
+        if (!connected) status.textContent = "Set GROQ_API_KEY on the server to start chatting.";
+      } catch {
+        status.textContent = "Open Wäster through its server to connect to Groq.";
+      }
+      status.hidden = !status.textContent;
+      updateComposer();
+    }
+
+    function selectModel(choice) {
+      model = choice;
+      byId("modelName").textContent = model.name;
+      byId("modelMark").dataset.brand = model.brand;
+      modelButton.setAttribute("aria-label", "Choose a model. Current model: " + model.name);
+      for (const button of byId("modelOptions").children) {
+        button.setAttribute("aria-pressed", String(button.children[1].textContent === model.name));
+      }
+    }
+
+    prompt.addEventListener("input", updateComposer);
+    prompt.addEventListener("keydown", event => {
+      if (event.key === "Enter" && !event.shiftKey && !event.isComposing && event.keyCode !== 229) {
+        event.preventDefault();
+        if (!active && !send.disabled) composer.requestSubmit();
+      }
+    });
+    stop.addEventListener("click", () => active?.abort());
+    composer.addEventListener("submit", event => {
+      event.preventDefault();
+      const content = prompt.value.trim();
+      if (!content || active || !connected || !model) return;
+      submitMessage(content);
+    });
+
+    byId("newChat").addEventListener("click", () => {
+      active?.abort();
+      active = null;
+      history.length = 0;
+      lastReply = null;
+      messages.replaceChildren();
+      prompt.value = "";
+      showChat(false);
+      updateComposer();
+      prompt.focus();
+    });
+
+    function submitMessage(content) {
+      if (lastReply) lastReply.querySelector(".retry").hidden = true;
+      history.push({ role: "user", content });
+      const message = document.createElement("article");
+      message.className = "message user message-body";
+      message.setAttribute("aria-label", "Your message");
+      message.textContent = content;
+      messages.append(message);
+      prompt.value = "";
+      showChat(true);
+      updateComposer();
+      if (matchMedia("(pointer: fine)").matches) prompt.focus({ preventScroll: true });
+      else prompt.blur();
+      void requestReply();
+    }
+
+    function addReply(selectedModel) {
+      const reply = byId("replyTemplate").content.firstElementChild.cloneNode(true);
+      reply.querySelector(".model-mark").dataset.brand = selectedModel.brand;
+      reply.querySelector(".reply-model").textContent = selectedModel.name;
+      reply.setAttribute("aria-label", selectedModel.name + " response");
+      messages.append(reply);
+      lastReply = reply;
+      reply.querySelector(".copy").addEventListener("click", async () => {
+        const value = reply.querySelector(".message-body").textContent;
+        try {
+          await navigator.clipboard.writeText(value);
+          announcement.textContent = "Reply copied.";
+        } catch {
+          const selection = window.getSelection();
+          const range = document.createRange();
+          range.selectNodeContents(reply.querySelector(".message-body"));
+          selection.removeAllRanges();
+          selection.addRange(range);
+          announcement.textContent = "Reply selected for copying.";
+        }
+      });
+      reply.querySelector(".retry").addEventListener("click", () => {
+        if (active || reply !== lastReply) return;
+        function regenerate() {
+          if (history.at(-1)?.role === "assistant") history.pop();
+          reply.remove();
+          void requestReply();
+        }
+        regenerate();
+      });
+      return reply;
+    }
+
+    async function requestReply() {
+      const selectedModel = model;
+      const controller = new AbortController();
+      active = controller;
+      const reply = addReply(selectedModel);
+      const output = reply.querySelector(".message-body");
+      const status = reply.querySelector(".status");
+      status.textContent = "Waiting for a reply…";
+      status.classList.add("is-waiting");
+      announcement.textContent = status.textContent;
+      updateComposer();
+      scrollToLatest();
+      let replyText = "";
+
+      try {
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ model: selectedModel.id, messages: history }),
+          signal: controller.signal
+        });
+        if (active !== controller) return;
+        if (!response.ok) {
+          const payload = await response.json().catch(() => null);
+          throw new Error(payload?.error?.message || "Groq returned an error (" + response.status + ").");
+        }
+        for await (const token of streamReply(response.body)) {
+          if (active !== controller) return;
+          const follow = nearBottom();
+          replyText += token;
+          output.textContent = replyText;
+          status.textContent = "";
+          status.classList.remove("is-waiting");
+          if (follow) scrollToLatest();
+        }
+        if (active !== controller) return;
+        if (!replyText.trim()) throw new Error("Groq returned an empty reply. Try again.");
+        history.push({ role: "assistant", content: replyText });
+        announcement.textContent = selectedModel.name + " replied.";
+      } catch (error) {
+        if (active !== controller) return;
+        const stopped = controller.signal.aborted;
+        if (stopped && replyText.trim()) history.push({ role: "assistant", content: replyText });
+        status.textContent = stopped ? "Response stopped." : error instanceof TypeError
+          ? "Couldn’t contact Groq. Check your connection and try again." : error.message;
+        status.classList.toggle("is-error", !stopped);
+        announcement.textContent = status.textContent;
+      } finally {
+        if (active === controller) {
+          active = null;
+          status.classList.remove("is-waiting");
+          reply.querySelector(".actions").hidden = false;
+          reply.querySelector(".copy").hidden = !replyText.trim();
+          updateComposer();
+        }
+      }
+    }
+
+    async function* streamReply(body) {
+      const reader = body.pipeThrough(new TextDecoderStream()).getReader();
+      let buffer = "";
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          buffer += done ? "\n" : value;
+          const lines = buffer.split("\n");
+          buffer = lines.pop();
+          for (const line of lines) {
+            if (!line.startsWith("data:")) continue;
+            const data = line.slice(5).trim();
+            if (data === "[DONE]") return;
+            if (!data) continue;
+            const chunk = JSON.parse(data);
+            if (chunk.error) throw new Error(chunk.error.message || "The reply stopped unexpectedly.");
+            const token = chunk.choices?.[0]?.delta?.content;
+            if (token) yield token;
+          }
+          if (done) throw new Error("The connection closed before the reply finished.");
+        }
+      } finally {
+        await reader.cancel().catch(() => { });
+        reader.releaseLock();
+      }
+    }
+  </script>
+</body>
+
+</html>
