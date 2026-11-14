@@ -1,0 +1,688 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <meta name="description" content="Wäster is a minimalist chat for ai.">
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'none'; style-src 'self'; script-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src data:; connect-src 'self'; base-uri 'none'; form-action 'none'">
+  <title>Wäster</title>
+  <link rel="icon"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23161616'/%3E%3Ctext x='16' y='24' text-anchor='middle' fill='%23f5f5f6' font-size='24' font-family='sans-serif'%3E%C3%A4%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="./style.css">
+</head>
+
+<body>
+  <div class="dots" aria-hidden="true"></div>
+  <main class="app opening" id="app">
+    <header class="topbar" id="topbar" hidden>
+      <p class="wordmark">Wäster</p>
+      <button class="icon-button" id="newChat" type="button" aria-label="New conversation" title="New conversation">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+          aria-hidden="true">
+          <path d="M12 5v14M5 12h14" />
+        </svg>
+      </button>
+    </header>
+
+    <section class="thread" id="thread" aria-label="Conversation" tabindex="0" hidden>
+      <div class="messages" id="messages" role="log" aria-live="off"></div>
+    </section>
+
+    <div class="dock" id="dock">
+      <div class="brand" id="brand">
+        <h1 class="wordmark">Wäster</h1>
+        <p class="slogan">an ai agent wrapper meant to run on the web</p>
+      </div>
+      <form class="composer" id="composer">
+        <label class="visually-hidden" for="prompt">Message agent</label>
+        <textarea id="prompt" rows="1" placeholder="Message agent…" enterkeyhint="send"></textarea>
+        <button class="icon-button send" id="send" type="submit" aria-label="Send message" title="Send message"
+          aria-disabled="true" disabled>
+          <span class="send-mark" aria-hidden="true"></span>
+        </button>
+        <button class="icon-button stop" id="stop" type="button" aria-label="Stop response" title="Stop response"
+          hidden>
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <rect x="7" y="7" width="10" height="10" rx="2" />
+          </svg>
+        </button>
+      </form>
+      <button class="model" id="model" type="button" aria-haspopup="dialog" aria-controls="settings"
+        aria-expanded="false" aria-label="Choose a model" title="Choose a model">
+        <span class="model-mark" id="modelMark" aria-hidden="true"></span>
+        <span id="modelName">Choose a model</span><span class="provider" aria-hidden="true"></span>
+        <span class="model-chevron" aria-hidden="true"></span>
+      </button>
+      <p class="connection-status" id="connectionStatus" role="status" hidden></p>
+      <div class="connection-status" id="signInAction" hidden>
+        <button class="sign-in-button" id="openSignIn" type="button">Sign in</button>
+      </div>
+    </div>
+    <div id="announcement" class="visually-hidden" role="status"></div>
+  </main>
+
+  <dialog id="settings" aria-labelledby="settingsTitle" aria-describedby="settingsContext">
+    <div>
+      <div class="dialog-header">
+        <h2 id="settingsTitle">Choose a model</h2>
+        <button class="icon-button" id="cancel" type="button" aria-label="Close settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+            aria-hidden="true">
+            <path d="m6 6 12 12M18 6 6 18" />
+          </svg>
+        </button>
+      </div>
+      <p id="settingsContext">The context window includes your messages and space for the reply.</p>
+      <div class="model-options" id="modelOptions" role="radiogroup" aria-label="Models">
+        <p id="modelStatus" role="status">Loading models…</p>
+      </div>
+      <!-- <label class="motion-option">
+        Animate background
+        <input type="checkbox" role="switch" id="backgroundMotion">
+      </label> -->
+    </div>
+  </dialog>
+
+  <dialog id="signInDialog" aria-labelledby="signInTitle">
+    <form id="signInForm">
+      <div class="dialog-header">
+        <h2 id="signInTitle">Sign in to Wäster</h2>
+        <button class="icon-button" id="closeSignIn" type="button" aria-label="Close sign-in">×</button>
+      </div>
+      <label for="sitePassword">Site password</label>
+      <input id="sitePassword" type="password" required maxlength="512" autocomplete="current-password"
+        aria-describedby="signInError" autofocus>
+      <p class="key-error" id="signInError" role="alert" hidden></p>
+      <div class="dialog-actions"><button id="signInSubmit" type="submit">Sign in</button></div>
+    </form>
+  </dialog>
+
+  <template id="replyTemplate">
+    <article class="message agent">
+      <p class="agent-name"><span class="model-mark" aria-hidden="true"></span><span class="reply-model"></span></p>
+      <div class="message-body"></div>
+      <p class="status"></p>
+      <div class="actions" hidden>
+        <button class="icon-button copy" type="button" aria-label="Copy reply" title="Copy reply">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"
+            aria-hidden="true">
+            <path d="M9 9h11v11H9zM15 9V4H4v11h5" />
+          </svg>
+        </button>
+        <button class="icon-button retry" type="button" aria-label="Regenerate reply" title="Regenerate reply">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+            stroke-linejoin="round" aria-hidden="true">
+            <path d="M20 7v5h-5M4 17v-5h5M6.1 7a7 7 0 0 1 11.6-1L20 9M4 15l2.3 3A7 7 0 0 0 18 17" />
+          </svg>
+        </button>
+      </div>
+    </article>
+  </template>
+
+  <template id="codeTemplate">
+    <section class="code-card">
+      <header class="code-toolbar">
+        <span class="code-language"></span>
+        <button class="code-copy" type="button" aria-label="Copy code">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+            stroke-linejoin="round" aria-hidden="true">
+            <path d="M9 9h11v11H9zM15 9V4H4v11h5" />
+          </svg>
+          <span>Copy</span>
+        </button>
+      </header>
+      <pre class="code-scroll" tabindex="0"><code></code></pre>
+    </section>
+  </template>
+
+  <script src="./prism.js"></script>
+  <script>
+    const endpoint = "/api/chat";
+    const byId = id => document.getElementById(id);
+    const app = byId("app");
+    const thread = byId("thread");
+    const messages = byId("messages");
+    const prompt = byId("prompt");
+    const composer = byId("composer");
+    const send = byId("send");
+    const stop = byId("stop");
+    const settings = byId("settings");
+    const modelButton = byId("model");
+    const modelOptions = byId("modelOptions");
+    const motionPreference = matchMedia("(prefers-reduced-motion: reduce)");
+    const backgroundMotion = byId("backgroundMotion");
+    const modelNotes = new Map([
+      ["qwen/qwen3.8-27b", "Coding and detailed answers"],
+      ["openai/gpt-oss-20b", "Quick replies and simple tasks"],
+      ["openai/gpt-oss-120b", "More complex reasoning"]
+    ]);
+    const announcement = byId("announcement");
+    const history = [];
+    let model;
+    let configured = false;
+    let signInRequired = false;
+    let sessionToken = "";
+    let active = null;
+    let lastReply = null;
+    let composerMotion;
+
+    void loadModels();
+    byId("model").addEventListener("animationend", event => {
+      if (event.target === byId("model") && event.animationName === "appear") app.classList.remove("opening");
+    });
+
+    function updateComposer() {
+      const keepBottom = nearBottom();
+      prompt.style.height = "auto";
+      prompt.style.height = Math.max(24, prompt.scrollHeight) + "px";
+      send.disabled = !configured || (signInRequired && !sessionToken) || !model || !prompt.value.trim();
+      send.setAttribute("aria-disabled", String(send.disabled));
+      send.hidden = Boolean(active);
+      stop.hidden = !active;
+      if (keepBottom) scrollToLatest();
+    }
+
+    function nearBottom() {
+      return thread.scrollHeight - thread.scrollTop - thread.clientHeight < 72;
+    }
+
+    function scrollToLatest() {
+      thread.scrollTop = thread.scrollHeight;
+    }
+
+    function showChat(inConversation) {
+      if (app.classList.contains("is-chat") === inConversation) return;
+      const start = composer.getBoundingClientRect();
+      composerMotion?.cancel();
+      app.classList.remove("opening");
+      app.classList.toggle("is-chat", inConversation);
+      byId("topbar").hidden = !inConversation;
+      thread.hidden = !inConversation;
+      byId("brand").hidden = inConversation;
+      const appearing = inConversation ? byId("topbar") : byId("brand");
+      appearing.classList.remove("enter");
+      requestAnimationFrame(() => appearing.classList.add("enter"));
+      updateComposer();
+      if (motionPreference.matches) return;
+      const end = composer.getBoundingClientRect();
+      const tokens = getComputedStyle(app);
+      composerMotion = byId("dock").animate(
+        [{ transform: "translateY(" + (start.top - end.top) + "px)" }, { transform: "none" }],
+        { duration: parseFloat(tokens.getPropertyValue("--dur-dock")), easing: tokens.getPropertyValue("--ease").trim() }
+      );
+    }
+
+    modelButton.addEventListener("click", () => {
+      settings.showModal();
+      modelButton.setAttribute("aria-expanded", "true");
+      modelOptions.querySelector('[tabindex="0"]')?.focus({ preventScroll: true });
+    });
+    settings.addEventListener("close", () => {
+      modelButton.setAttribute("aria-expanded", "false");
+      for (const option of modelOptions.querySelectorAll('[role="radio"]')) {
+        option.tabIndex = option.getAttribute("aria-checked") === "true" ? 0 : -1;
+      }
+    });
+    byId("cancel").addEventListener("click", () => settings.close());
+    modelOptions.addEventListener("keydown", event => {
+      const options = [...modelOptions.querySelectorAll('[role="radio"]')];
+      const current = options.indexOf(event.target);
+      if (current < 0) return;
+      let next;
+      switch (event.key) {
+        case "ArrowDown": case "ArrowRight": next = (current + 1) % options.length; break;
+        case "ArrowUp": case "ArrowLeft": next = (current + options.length - 1) % options.length; break;
+        case "Home": next = 0; break;
+        case "End": next = options.length - 1; break;
+        default: return;
+      }
+      event.preventDefault();
+      options[current].tabIndex = -1;
+      options[next].tabIndex = 0;
+      options[next].focus();
+    });
+
+    let animateBackground = true;
+    // Honor a saved choice when the switch is available to change it.
+    if (backgroundMotion) {
+      try { animateBackground = localStorage.getItem("waster-animate-background") !== "false"; } catch { }
+    }
+    function syncBackgroundMotion() {
+      const enabled = animateBackground && !motionPreference.matches;
+      if (backgroundMotion) {
+        backgroundMotion.checked = enabled;
+        backgroundMotion.disabled = motionPreference.matches;
+      }
+      document.body.classList.toggle("pause-background", !enabled || document.hidden);
+    }
+    backgroundMotion?.addEventListener("change", () => {
+      animateBackground = backgroundMotion.checked;
+      syncBackgroundMotion();
+      try { localStorage.setItem("waster-animate-background", String(animateBackground)); } catch { }
+    });
+    motionPreference.addEventListener("change", () => {
+      if (motionPreference.matches) composerMotion?.cancel();
+      syncBackgroundMotion();
+    });
+    document.addEventListener("visibilitychange", syncBackgroundMotion);
+    syncBackgroundMotion();
+
+    const signInDialog = byId("signInDialog");
+    const password = byId("sitePassword");
+    const signInError = byId("signInError");
+    const signInSubmit = byId("signInSubmit");
+    byId("openSignIn").addEventListener("click", () => {
+      signInError.hidden = true;
+      signInDialog.showModal();
+    });
+    byId("closeSignIn").addEventListener("click", () => signInDialog.close());
+    signInDialog.addEventListener("close", () => { password.value = ""; });
+    byId("signInForm").addEventListener("submit", async event => {
+      event.preventDefault();
+      signInSubmit.disabled = true;
+      signInError.hidden = true;
+      try {
+        const response = await fetch("/api/sign-in", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password: password.value })
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error?.message ?? "Sign-in failed.");
+        sessionToken = result.token;
+        signInDialog.close();
+        refreshSignIn();
+        prompt.focus();
+      } catch (error) {
+        signInError.textContent = error.message;
+        signInError.hidden = false;
+      } finally {
+        signInSubmit.disabled = false;
+      }
+    });
+
+    function refreshSignIn() {
+      byId("signInAction").hidden = !configured || !signInRequired || Boolean(sessionToken);
+      updateComposer();
+    }
+
+    async function loadModels() {
+      const status = byId("connectionStatus");
+      try {
+        const response = await fetch("/api/models");
+        if (!response.ok) throw new Error();
+        const config = await response.json();
+        configured = config.configured;
+        signInRequired = config.signInRequired;
+        for (const option of config.models) {
+          const button = document.createElement("button");
+          button.className = "model-option";
+          button.type = "button";
+          button.setAttribute("role", "radio");
+          button.setAttribute("aria-checked", "false");
+          button.tabIndex = -1;
+          button.dataset.modelId = option.id;
+          const mark = document.createElement("span");
+          mark.className = "model-mark";
+          mark.dataset.brand = option.brand;
+          mark.setAttribute("aria-hidden", "true");
+          const details = document.createElement("span");
+          details.className = "model-details";
+          const name = document.createElement("span");
+          name.className = "model-option-name";
+          name.textContent = option.name;
+          details.append(name);
+          if (modelNotes.has(option.id)) {
+            const note = document.createElement("span");
+            note.className = "model-note";
+            note.textContent = modelNotes.get(option.id);
+            details.append(note);
+          }
+          const indicator = document.createElement("span");
+          indicator.className = "model-indicator";
+          indicator.setAttribute("aria-hidden", "true");
+          if (Number.isFinite(option.context)) {
+            const limit = document.createElement("span");
+            limit.className = "model-context";
+            limit.textContent = option.context.toLocaleString() + " tokens";
+            details.append(limit);
+          }
+          button.append(mark, details, indicator);
+          button.addEventListener("click", () => {
+            selectModel(option);
+            settings.close();
+            announcement.textContent = option.name + " selected.";
+          });
+          modelOptions.append(button);
+        }
+        const modelStatus = byId("modelStatus");
+        modelStatus.hidden = config.models.length > 0;
+        modelStatus.textContent = "No models available.";
+        if (config.models.length) {
+          let saved;
+          try { saved = sessionStorage.getItem("waster-model"); } catch { }
+          selectModel(config.models.find(option => option.id === saved) ?? config.models[0]);
+        }
+        if (!configured) status.textContent = config.configurationError ?? "Set GROQ_API_KEY on the server to start chatting.";
+      } catch {
+        byId("modelStatus").textContent = "Couldn’t load models.";
+        status.textContent = "Wäster was meant to be run on a server, check your connection and try again.";
+      }
+      status.hidden = !status.textContent;
+      refreshSignIn();
+    }
+
+    function selectModel(choice) {
+      model = choice;
+      try { sessionStorage.setItem("waster-model", model.id); } catch { }
+      byId("modelName").textContent = model.name;
+      byId("modelMark").dataset.brand = model.brand;
+      modelButton.setAttribute("aria-label", "Choose a model. Current model: " + model.name);
+      for (const button of modelOptions.querySelectorAll('[role="radio"]')) {
+        const selected = button.dataset.modelId === model.id;
+        button.setAttribute("aria-checked", String(selected));
+        button.tabIndex = selected ? 0 : -1;
+      }
+    }
+
+    prompt.addEventListener("input", updateComposer);
+    prompt.addEventListener("keydown", event => {
+      if (event.key === "Enter" && !event.shiftKey && !event.isComposing && event.keyCode !== 229) {
+        event.preventDefault();
+        if (!active && !send.disabled) composer.requestSubmit();
+      }
+    });
+    stop.addEventListener("click", () => active?.abort());
+    composer.addEventListener("submit", event => {
+      event.preventDefault();
+      const content = prompt.value.trim();
+      if (!content || active || send.disabled || !model) return;
+      submitMessage(content);
+    });
+
+    byId("newChat").addEventListener("click", () => {
+      active?.abort();
+      active = null;
+      history.length = 0;
+      lastReply = null;
+      messages.replaceChildren();
+      prompt.value = "";
+      showChat(false);
+      updateComposer();
+      prompt.focus();
+    });
+
+    function submitMessage(content) {
+      if (lastReply) lastReply.querySelector(".retry").hidden = true;
+      history.push({ role: "user", content });
+      const message = document.createElement("article");
+      message.className = "message user message-body";
+      message.setAttribute("aria-label", "Your message");
+      message.textContent = content;
+      messages.append(message);
+      prompt.value = "";
+      showChat(true);
+      updateComposer();
+      if (matchMedia("(pointer: fine)").matches) prompt.focus({ preventScroll: true });
+      else prompt.blur();
+      void requestReply();
+    }
+
+    async function copyText(value, source, label) {
+      try {
+        await navigator.clipboard.writeText(value);
+        announcement.textContent = label + " copied.";
+        return true;
+      } catch {
+        const selection = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(source);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        announcement.textContent = label + " selected for copying.";
+        return false;
+      }
+    }
+
+    function addReply(selectedModel) {
+      const reply = byId("replyTemplate").content.firstElementChild.cloneNode(true);
+      reply.querySelector(".model-mark").dataset.brand = selectedModel.brand;
+      reply.querySelector(".reply-model").textContent = selectedModel.name;
+      reply.setAttribute("aria-label", selectedModel.name + " response");
+      messages.append(reply);
+      lastReply = reply;
+      reply.querySelector(".retry").addEventListener("click", () => {
+        if (active || reply !== lastReply) return;
+        function regenerate() {
+          if (history.at(-1)?.role === "assistant") history.pop();
+          reply.remove();
+          void requestReply();
+        }
+        regenerate();
+      });
+      return reply;
+    }
+
+    const languageNames = new Map(Object.entries({
+      js: "JavaScript", javascript: "JavaScript", ts: "TypeScript", typescript: "TypeScript",
+      py: "Python", python: "Python", html: "HTML", markup: "HTML", xml: "XML",
+      css: "CSS", json: "JSON", jsx: "JSX", tsx: "TSX", sql: "SQL",
+      sh: "Shell", bash: "Bash", shell: "Shell", powershell: "PowerShell", ps1: "PowerShell",
+      cs: "C#", csharp: "C#", cpp: "C++", c: "C", java: "Java", lua: "Lua", luau: "Luau",
+      gdscript: "GDScript", yaml: "YAML", yml: "YAML", go: "Go", rust: "Rust"
+    }));
+    const languageAliases = new Map(Object.entries({
+      "c++": "cpp", "c#": "csharp", shell: "bash", ps1: "powershell", luau: "lua"
+    }));
+
+    function createCodeBlock(target, language) {
+      const card = byId("codeTemplate").content.firstElementChild.cloneNode(true);
+      const name = languageNames.get(language) ?? (language || "Code");
+      const code = card.querySelector("code");
+      const copy = card.querySelector(".code-copy");
+      const caption = copy.querySelector("span");
+      const grammarName = languageAliases.get(language) ?? language;
+      card.querySelector(".code-language").textContent = name;
+      card.querySelector("pre").setAttribute("aria-label", name + " code");
+      let feedbackTimer;
+      copy.addEventListener("click", async () => {
+        const copied = await copyText(code.textContent, code, "Code");
+        caption.textContent = copied ? "Copied" : "Selected";
+        copy.classList.toggle("is-copied", copied);
+        clearTimeout(feedbackTimer);
+        feedbackTimer = setTimeout(() => {
+          caption.textContent = "Copy";
+          copy.classList.remove("is-copied");
+        }, 1600);
+      });
+      target.append(card);
+      return { code, grammarName };
+    }
+
+    function highlightCode(block) {
+      const prism = window.Prism;
+      const languages = prism?.languages;
+      if (!languages || !Object.hasOwn(languages, block.grammarName)) return;
+      const grammar = languages[block.grammarName];
+      if (typeof grammar !== "object" || !grammar) return;
+      const value = block.code.textContent;
+      if (value.length > 40_000) return;
+
+      // Tokenize locally and build text nodes, including for model-generated HTML.
+      function appendTokens(target, tokens) {
+        for (const token of tokens) {
+          if (typeof token === "string") {
+            target.append(token);
+          } else {
+            const span = document.createElement("span");
+            span.className = "token " + token.type;
+            appendTokens(span, Array.isArray(token.content) ? token.content : [token.content]);
+            target.append(span);
+          }
+        }
+      }
+      const highlighted = document.createDocumentFragment();
+      appendTokens(highlighted, prism.tokenize(value, grammar));
+      block.code.replaceChildren(highlighted);
+    }
+
+    function renderReply(output) {
+      let pending = "";
+      let block = null;
+      const preview = document.createTextNode("");
+      output.append(preview);
+
+      function appendLine(line, newline) {
+        const fence = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(line);
+        if (block) {
+          if (fence && fence[1][0] === block.fence[0] &&
+            fence[1].length >= block.fence.length && !fence[2].trim()) {
+            highlightCode(block);
+            block = null;
+          } else {
+            block.code.append(line + newline);
+          }
+          return;
+        }
+        if (fence && !(fence[1][0] === "`" && fence[2].includes("`"))) {
+          const language = (/^[\w+#.-]{1,24}/.exec(fence[2].trim())?.[0] ?? "").toLowerCase();
+          block = { ...createCodeBlock(output, language), fence: fence[1] };
+          return;
+        }
+
+        const fragments = line.split(/(`[^`]+`)/g);
+        for (let index = 0; index < fragments.length; index++) {
+          if (index % 2 === 0) output.append(fragments[index]);
+          else {
+            const code = document.createElement("code");
+            code.className = "inline-code";
+            code.textContent = fragments[index].slice(1, -1);
+            output.append(code);
+          }
+        }
+        output.append(newline);
+      }
+
+      return {
+        push(chunk) {
+          pending += chunk;
+          const lines = pending.split("\n");
+          pending = lines.pop();
+          preview.remove();
+          for (const line of lines) appendLine(line.replace(/\r$/, ""), "\n");
+          // Keep partial lines visible without committing a possible split fence.
+          const possibleFence = /^ {0,3}(?:`{1,2}|~{1,2})$|^ {0,3}(?:`{3,}|~{3,})/.test(pending);
+          preview.data = possibleFence ? "" : pending;
+          (block?.code ?? output).append(preview);
+        },
+        finish() {
+          preview.remove();
+          if (pending) appendLine(pending.replace(/\r$/, ""), "");
+          if (block) highlightCode(block);
+        }
+      };
+    }
+
+    async function requestReply() {
+      const selectedModel = model;
+      const controller = new AbortController();
+      active = controller;
+      const reply = addReply(selectedModel);
+      const output = reply.querySelector(".message-body");
+      const renderer = renderReply(output);
+      const status = reply.querySelector(".status");
+      status.textContent = "Waiting for a reply…";
+      status.classList.add("is-waiting");
+      announcement.textContent = status.textContent;
+      updateComposer();
+      scrollToLatest();
+      let replyText = "";
+
+      try {
+        const headers = { "Content-Type": "application/json" };
+        if (sessionToken) headers.Authorization = "Bearer " + sessionToken;
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ model: selectedModel.id, messages: history }),
+          signal: controller.signal
+        });
+        if (active !== controller) return;
+        if (!response.ok) {
+          if (response.status === 401) {
+            sessionToken = "";
+            refreshSignIn();
+          }
+          const payload = await response.json().catch(() => null);
+          throw new Error(payload?.error?.message || "Groq returned an error (" + response.status + ").");
+        }
+        for await (const token of streamReply(response.body)) {
+          if (active !== controller) return;
+          const follow = nearBottom();
+          replyText += token;
+          renderer.push(token);
+          status.textContent = "";
+          status.classList.remove("is-waiting");
+          if (follow) scrollToLatest();
+        }
+        if (active !== controller) return;
+        if (!replyText.trim()) throw new Error("Groq returned an empty reply. Try again.");
+        history.push({ role: "assistant", content: replyText });
+        announcement.textContent = selectedModel.name + " replied.";
+      } catch (error) {
+        if (active !== controller) return;
+        const stopped = controller.signal.aborted;
+        if (stopped && replyText.trim()) history.push({ role: "assistant", content: replyText });
+        status.textContent = stopped ? "Response stopped." : error instanceof TypeError
+          ? "Couldn’t contact Groq. Check your connection and try again." : error.message;
+        status.classList.toggle("is-error", !stopped);
+        announcement.textContent = status.textContent;
+      } finally {
+        if (active === controller) {
+          const follow = nearBottom();
+          renderer.finish();
+          active = null;
+          status.classList.remove("is-waiting");
+          reply.querySelector(".actions").hidden = false;
+          const copy = reply.querySelector(".copy");
+          copy.hidden = !replyText.trim();
+          copy.addEventListener("click", () => void copyText(replyText, output, "Reply"));
+          updateComposer();
+          if (follow) scrollToLatest();
+        }
+      }
+    }
+
+    async function* streamReply(body) {
+      const reader = body.pipeThrough(new TextDecoderStream()).getReader();
+      let buffer = "";
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          buffer += done ? "\n" : value;
+          const lines = buffer.split("\n");
+          buffer = lines.pop();
+          for (const line of lines) {
+            if (!line.startsWith("data:")) continue;
+            const data = line.slice(5).trim();
+            if (data === "[DONE]") return;
+            if (!data) continue;
+            const chunk = JSON.parse(data);
+            if (chunk.error) throw new Error(chunk.error.message || "The reply stopped unexpectedly.");
+            const token = chunk.choices?.[0]?.delta?.content;
+            if (token) yield token;
+          }
+          if (done) throw new Error("The connection closed before the reply finished.");
+        }
+      } finally {
+        await reader.cancel().catch(() => { });
+        reader.releaseLock();
+      }
+    }
+  </script>
+</body>
+
+</html>
