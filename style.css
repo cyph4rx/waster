@@ -146,59 +146,129 @@ body:has(.app.is-chat) .node-background {
   filter: none;
 }
 
+.model-picker {
+  --picker-pad: 24px;
+  --picker-icon: 36px;
+  --picker-gap: 12px;
+  --picker-check: 22px;
+  --picker-inset: 12px;
+}
+
+.picker-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px var(--picker-pad) 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.picker-header h2 { letter-spacing: -.025em; }
+.picker-header #settingsContext { margin-top: 3px; }
+.picker-header .icon-button { margin: -6px -9px -6px 0; }
+.picker-body { padding: 16px var(--picker-pad) 14px; }
+
+.picker-columns {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--picker-gap);
+  padding: 0 calc(var(--picker-inset) + var(--picker-check) + var(--picker-gap)) 8px var(--picker-inset);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
 .model-options {
   display: grid;
-  gap: 8px;
-  margin-block: 24px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--composer);
 }
 
 .model-option {
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr) 20px;
-  gap: 12px;
+  grid-template-columns: var(--picker-icon) minmax(0, 1fr) auto var(--picker-check);
+  grid-template-areas: "icon details context selected";
+  gap: var(--picker-gap);
   align-items: center;
-  min-height: 68px;
-  padding: 12px 16px;
-  border-radius: var(--control-radius);
-  border: 1px solid var(--border);
-  background: var(--composer);
+  min-height: 72px;
+  width: 100%;
+  padding: 10px var(--picker-inset);
+  border: 0;
+  background: transparent;
   text-align: left;
-  transition: background-color var(--fast) var(--ease), border-color var(--fast) var(--ease);
+  transition: background-color var(--fast) var(--ease);
 }
 
-.model-option:hover,
-.model-option[aria-checked="true"] {
-  background: var(--raised);
-  border-color: var(--border-strong);
+.model-option + .model-option { border-top: 1px solid var(--border); }
+.model-option:first-child { border-radius: 11px 11px 0 0; }
+.model-option:last-child { border-radius: 0 0 11px 11px; }
+.model-option:only-child { border-radius: 11px; }
+.model-option:hover { background: var(--raised); }
+.model-option[aria-pressed="true"] { background: var(--hover); }
+.model-option:focus-visible {
+  outline-offset: -3px;
 }
 
-.model-option .model-mark { justify-self: center; }
-.model-details { display: grid; gap: 2px; }
-.model-option-name { font-weight: 600; }
-.model-note, .model-context { color: var(--muted); font-size: 12px; }
-.model-context { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
-
-.model-indicator {
+.model-icon {
+  grid-area: icon;
   display: grid;
   place-items: center;
-  width: 18px;
-  height: 18px;
-  border: 1px solid var(--muted);
-  border-radius: 50%;
+  width: var(--picker-icon);
+  aspect-ratio: 1;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
 }
 
-.model-indicator::before {
-  content: "";
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--text);
-  opacity: 0;
-  transition: opacity var(--fast) var(--ease);
+.model-details { grid-area: details; display: grid; gap: 3px; min-width: 0; }
+.model-option-name { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+.model-note, .model-context { color: var(--muted); font-size: 12px; }
+.model-note { line-height: 1.4; }
+.model-context {
+  grid-area: context;
+  justify-self: end;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
-.model-option[aria-checked="true"] .model-indicator { border-color: var(--text); }
-.model-option[aria-checked="true"] .model-indicator::before { opacity: 1; }
+.model-indicator {
+  grid-area: selected;
+  display: grid;
+  place-items: center;
+  width: var(--picker-check);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  visibility: hidden;
+}
+
+.model-indicator svg { width: 16px; height: 16px; }
+.model-option[aria-pressed="true"] .model-indicator { visibility: visible; }
+.model-options:empty { display: none; }
+#settings .context-hint { margin: 10px 0 0; font-size: 12px; }
+.picker-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 64px;
+  padding: 10px 12px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 12px;
+}
+
+.picker-status #modelStatus { margin: 0; }
+.picker-status button {
+  min-height: 44px;
+  padding-inline: 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--control-radius);
+  background: var(--raised);
+  font-size: 13px;
+}
 
 .connection-status { text-align: center; color: var(--muted); font-size: 13px; }
 
@@ -269,50 +339,6 @@ body:has(.app.is-chat) .node-background {
 :is(.sign-in-button, #signInSubmit):active:not(:disabled)::before {
   filter: blur(4px);
 }
-
-dialog .motion-option {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-height: 44px;
-  margin: 0;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
-  color: var(--muted);
-  cursor: pointer;
-}
-
-dialog .motion-option input {
-  appearance: none;
-  position: relative;
-  flex: none;
-  width: 40px;
-  min-height: 0;
-  height: 22px;
-  margin: 0;
-  padding: 0;
-  border-radius: var(--pill);
-  background: var(--surface);
-  cursor: inherit;
-  transition: background-color var(--fast) var(--ease);
-}
-
-dialog .motion-option input::before {
-  content: "";
-  position: absolute;
-  inset: 2px auto auto 2px;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: var(--muted);
-  transition: transform var(--base) var(--ease), background-color var(--fast) var(--ease);
-}
-
-dialog .motion-option input:checked { background: var(--accent); }
-dialog .motion-option input:checked::before { transform: translateX(18px); background: var(--accent-ink); }
-dialog .motion-option:has(input:disabled) { cursor: default; }
-dialog .motion-option input:disabled { opacity: .6; }
 
 .app {
   position: relative;
@@ -571,6 +597,10 @@ dialog .motion-option input:disabled { opacity: .6; }
 .model:hover::before {
   background: var(--hover);
 }
+
+.model[aria-expanded="true"]::before { background: var(--hover); }
+.model .model-chevron { transition: transform var(--fast) var(--ease); }
+.model[aria-expanded="true"] .model-chevron { transform: translateY(3px) rotate(225deg); }
 
 .provider {
   color: var(--muted);
@@ -917,7 +947,9 @@ dialog[open]::backdrop {
 }
 
 #settings {
-  width: min(calc(100% - 32px), 480px);
+  width: min(calc(100% - 32px), 560px);
+  padding: 0;
+  overscroll-behavior: contain;
   transform: scale(.96) translateY(8px);
 }
 
@@ -927,7 +959,7 @@ dialog[open]::backdrop {
 
 @supports (backdrop-filter: blur(16px)) {
   #settings {
-    background: rgb(22 22 22 / .72);
+    background: rgb(22 22 22 / .88);
     backdrop-filter: blur(16px);
   }
 }
@@ -1030,8 +1062,17 @@ dialog .key-error {
     margin-bottom: 20px;
   }
 
-  #settings { padding: 16px; }
-  .model-option { padding-inline: 8px 12px; gap: 8px; }
+  .model-picker { --picker-pad: 16px; --picker-gap: 10px; }
+}
+
+@media (max-width: 450px) {
+  .picker-columns { display: none; }
+  .model-option {
+    grid-template-columns: var(--picker-icon) minmax(0, 1fr) var(--picker-check);
+    grid-template-areas: "icon details selected" "icon context selected";
+    row-gap: 4px;
+  }
+  .model-context { justify-self: start; }
 }
 
 @media (prefers-reduced-motion: reduce) {

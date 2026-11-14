@@ -55,38 +55,62 @@
       <button class="model" id="model" type="button" aria-haspopup="dialog" aria-controls="settings"
         aria-expanded="false" aria-label="Choose a model" title="Choose a model">
         <span class="model-mark" id="modelMark" aria-hidden="true"></span>
-        <span id="modelName">choose a model</span>
+        <span id="modelName">Choose a model</span>
         <span class="model-chevron" aria-hidden="true"></span>
       </button>
       <p class="connection-status" id="connectionStatus" role="status" hidden></p>
       <div class="connection-status" id="signInAction" hidden>
-        <button class="sign-in-button" id="openSignIn" type="button">Sign in</button>
+        <button class="sign-in-button" id="openSignIn" type="button">sign in</button>
       </div>
     </div>
     <div id="announcement" class="visually-hidden" role="status"></div>
   </main>
 
   <dialog id="settings" aria-labelledby="settingsTitle" aria-describedby="settingsContext">
-    <div>
-      <div class="dialog-header">
-        <h2 id="settingsTitle">choose a model</h2>
-        <button class="icon-button" id="cancel" type="button" aria-label="Close settings">
+    <div class="model-picker">
+      <header class="picker-header">
+        <div>
+          <h2 id="settingsTitle">Choose a model</h2>
+          <p id="settingsContext">List of available models.</p>
+        </div>
+        <button class="icon-button" id="cancel" type="button" aria-label="Close model picker">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
             aria-hidden="true">
             <path d="m6 6 12 12M18 6 6 18" />
           </svg>
         </button>
+      </header>
+      <div class="picker-body">
+        <div class="picker-columns" aria-hidden="true">
+          <span>Model</span><span>Context window</span>
+        </div>
+        <div class="model-options" id="modelOptions" role="group" aria-label="Models" aria-describedby="contextHint">
+        </div>
+        <div class="picker-status" id="pickerStatus">
+          <p id="modelStatus" role="status">Loading models…</p>
+          <button type="button" id="retryModels" hidden>Try again</button>
+        </div>
+        <p class="context-hint" id="contextHint">Context includes the conversation and room for the reply.</p>
       </div>
-      <p id="settingsContext">all of the available models with context limits.</p>
-      <div class="model-options" id="modelOptions" role="radiogroup" aria-label="Models">
-        <p id="modelStatus" role="status">Loading models…</p>
-      </div>
-      <label class="motion-option">
-        Animate background
-        <input type="checkbox" role="switch" id="backgroundMotion" checked>
-      </label>
     </div>
   </dialog>
+
+  <template id="modelOptionTemplate">
+    <button class="model-option" type="button" aria-pressed="false">
+      <span class="model-icon" aria-hidden="true"><span class="model-mark"></span></span>
+      <span class="model-details">
+        <span class="model-option-name"></span>
+        <span class="model-note"></span>
+      </span>
+      <span class="model-context"></span>
+      <span class="model-indicator" aria-hidden="true">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+          stroke-linejoin="round">
+          <path d="m4 8 2.5 2.5L12 5" />
+        </svg>
+      </span>
+    </button>
+  </template>
 
   <dialog id="signInDialog" aria-labelledby="signInTitle">
     <form id="signInForm">
@@ -261,31 +285,17 @@
     modelButton.addEventListener("click", () => {
       settings.showModal();
       modelButton.setAttribute("aria-expanded", "true");
-      modelOptions.querySelector('[tabindex="0"]')?.focus({ preventScroll: true });
     });
     settings.addEventListener("close", () => {
       modelButton.setAttribute("aria-expanded", "false");
-      for (const option of modelOptions.querySelectorAll('[role="radio"]')) {
-        option.tabIndex = option.getAttribute("aria-checked") === "true" ? 0 : -1;
-      }
     });
     byId("cancel").addEventListener("click", () => settings.close());
+    settings.addEventListener("click", event => {
+      if (event.target === settings) settings.close();
+    });
+    byId("retryModels").addEventListener("click", loadModels);
     modelOptions.addEventListener("keydown", event => {
-      const options = [...modelOptions.querySelectorAll('[role="radio"]')];
-      const current = options.indexOf(event.target);
-      if (current < 0) return;
-      let next;
-      switch (event.key) {
-        case "ArrowDown": case "ArrowRight": next = (current + 1) % options.length; break;
-        case "ArrowUp": case "ArrowLeft": next = (current + options.length - 1) % options.length; break;
-        case "Home": next = 0; break;
-        case "End": next = options.length - 1; break;
-        default: return;
-      }
-      event.preventDefault();
-      options[current].tabIndex = -1;
-      options[next].tabIndex = 0;
-      options[next].focus();
+      if (event.key === "Enter") event.preventDefault();
     });
 
     motionPreference.addEventListener("change", () => {
@@ -333,46 +343,34 @@
 
     async function loadModels() {
       const status = byId("connectionStatus");
+      const pickerStatus = byId("pickerStatus");
+      const modelStatus = byId("modelStatus");
+      const retry = byId("retryModels");
+      pickerStatus.hidden = false;
+      retry.hidden = true;
+      modelStatus.textContent = "Loading models…";
+      modelOptions.setAttribute("aria-busy", "true");
       try {
         const response = await fetch("/api/models");
         if (!response.ok) throw new Error();
         const config = await response.json();
         configured = config.configured;
         signInRequired = config.signInRequired;
+        modelOptions.replaceChildren();
         for (const option of config.models) {
-          const button = document.createElement("button");
-          button.className = "model-option";
-          button.type = "button";
-          button.setAttribute("role", "radio");
-          button.setAttribute("aria-checked", "false");
-          button.tabIndex = -1;
+          const button = byId("modelOptionTemplate").content.firstElementChild.cloneNode(true);
           button.dataset.modelId = option.id;
-          const mark = document.createElement("span");
-          mark.className = "model-mark";
-          mark.dataset.brand = option.brand;
-          mark.setAttribute("aria-hidden", "true");
-          const details = document.createElement("span");
-          details.className = "model-details";
-          const name = document.createElement("span");
-          name.className = "model-option-name";
-          name.textContent = option.name;
-          details.append(name);
-          if (modelNotes.has(option.id)) {
-            const note = document.createElement("span");
-            note.className = "model-note";
-            note.textContent = modelNotes.get(option.id);
-            details.append(note);
-          }
-          const indicator = document.createElement("span");
-          indicator.className = "model-indicator";
-          indicator.setAttribute("aria-hidden", "true");
+          button.querySelector(".model-mark").dataset.brand = option.brand;
+          button.querySelector(".model-option-name").textContent = option.name;
+          const note = button.querySelector(".model-note");
+          note.textContent = modelNotes.get(option.id) ?? "";
+          note.hidden = !note.textContent;
+          const limit = button.querySelector(".model-context");
           if (Number.isFinite(option.context)) {
-            const limit = document.createElement("span");
-            limit.className = "model-context";
             limit.textContent = option.context.toLocaleString() + " tokens";
-            details.append(limit);
+            limit.setAttribute("aria-label", "Context window: " + limit.textContent);
           }
-          button.append(mark, details, indicator);
+          else limit.textContent = "—";
           button.addEventListener("click", () => {
             selectModel(option);
             settings.close();
@@ -380,18 +378,21 @@
           });
           modelOptions.append(button);
         }
-        const modelStatus = byId("modelStatus");
-        modelStatus.hidden = config.models.length > 0;
-        modelStatus.textContent = "no models available :(";
+        pickerStatus.hidden = config.models.length > 0;
+        retry.hidden = config.models.length > 0;
+        modelStatus.textContent = "No models are available.";
         if (config.models.length) {
           let saved;
           try { saved = sessionStorage.getItem("waster-model"); } catch { }
           selectModel(config.models.find(option => option.id === saved) ?? config.models[0]);
         }
-        if (!configured) status.textContent = config.configurationError ?? "Set GROQ_API_KEY on the server to start chatting.";
+        status.textContent = configured ? "" : config.configurationError ?? "Set GROQ_API_KEY on the server to start chatting.";
       } catch {
-        byId("modelStatus").textContent = "Couldn’t load models :(";
+        modelStatus.textContent = "Couldn’t load models.";
+        retry.hidden = false;
         status.textContent = "Wäster was meant to be run on a server, check your connection and try again.";
+      } finally {
+        modelOptions.removeAttribute("aria-busy");
       }
       status.hidden = !status.textContent;
       refreshSignIn();
@@ -403,10 +404,9 @@
       byId("modelName").textContent = model.name;
       byId("modelMark").dataset.brand = model.brand;
       modelButton.setAttribute("aria-label", "Choose a model. Current model: " + model.name);
-      for (const button of modelOptions.querySelectorAll('[role="radio"]')) {
+      for (const button of modelOptions.children) {
         const selected = button.dataset.modelId === model.id;
-        button.setAttribute("aria-checked", String(selected));
-        button.tabIndex = selected ? 0 : -1;
+        button.setAttribute("aria-pressed", String(selected));
       }
     }
 

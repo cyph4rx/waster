@@ -8,7 +8,7 @@
   </p>
 </div>
 
-Wäster is a simple AI chat with a moving network of nodes. Pick Qwen or GPT-OSS, watch replies stream in, and copy code straight from the chat. Use **Animate background** in the model picker to pause it.
+Wäster is a simple AI chat with a moving network of nodes. Pick Qwen or GPT-OSS, watch replies stream in, and copy code straight from the chat.
 
 ## Run it locally
 

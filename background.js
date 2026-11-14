@@ -1,17 +1,11 @@
 (() => {
   const canvas = document.getElementById("nodeBackground");
-  const toggle = document.getElementById("backgroundMotion");
   const context = canvas.getContext("2d");
-  if (!context) {
-    toggle.disabled = true;
-    return;
-  }
+  if (!context) return;
 
   const motion = matchMedia("(prefers-reduced-motion: reduce)");
   const mobile = matchMedia("(max-width: 600px)");
-  const preferenceKey = "waster-animate-background";
   const frameInterval = 1000 / 30;
-  let enabled = true;
   let visible = false;
   let frame = 0;
   let lastDraw;
@@ -20,8 +14,6 @@
   let height = 0;
   let connectionDistance = 0;
   let nodes = [];
-
-  try { enabled = localStorage.getItem(preferenceKey) !== "false"; } catch {}
 
   function resize() {
     width = canvas.clientWidth;
@@ -98,9 +90,7 @@
   }
 
   function syncAnimation() {
-    toggle.checked = enabled && !motion.matches;
-    toggle.disabled = motion.matches;
-    if (toggle.checked && visible && !document.hidden && width && height) {
+    if (!motion.matches && visible && !document.hidden && width && height) {
       if (!frame) frame = requestAnimationFrame(tick);
     } else {
       cancelAnimationFrame(frame);
@@ -109,11 +99,6 @@
     }
   }
 
-  toggle.addEventListener("change", () => {
-    enabled = toggle.checked;
-    try { localStorage.setItem(preferenceKey, String(enabled)); } catch {}
-    syncAnimation();
-  });
   motion.addEventListener("change", syncAnimation);
   document.addEventListener("visibilitychange", syncAnimation);
   new ResizeObserver(resize).observe(canvas);
