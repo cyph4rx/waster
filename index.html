@@ -38,26 +38,28 @@
         <h1 class="wordmark">Wäster</h1>
         <p class="slogan">an ai wrapper meant for the web</p>
       </div>
-      <form class="composer" id="composer">
-        <label class="visually-hidden" for="prompt">Message agent</label>
-        <textarea id="prompt" rows="1" placeholder="Message agent…" enterkeyhint="send"></textarea>
-        <button class="icon-button send" id="send" type="submit" aria-label="Send message" title="Send message"
-          aria-disabled="true" disabled>
-          <span class="send-mark" aria-hidden="true"></span>
+      <div class="composer-controls">
+        <form class="composer" id="composer">
+          <label class="visually-hidden" for="prompt">Message agent</label>
+          <textarea id="prompt" rows="1" placeholder="Message agent…" enterkeyhint="send"></textarea>
+          <button class="icon-button send" id="send" type="submit" aria-label="Send message" title="Send message"
+            aria-disabled="true" disabled>
+            <span class="send-mark" aria-hidden="true"></span>
+          </button>
+          <button class="icon-button stop" id="stop" type="button" aria-label="Stop response" title="Stop response"
+            hidden>
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <rect x="7" y="7" width="10" height="10" rx="2" />
+            </svg>
+          </button>
+        </form>
+        <button class="model" id="model" type="button" aria-haspopup="dialog" aria-controls="settings"
+          aria-expanded="false" aria-label="Choose a model" title="Choose a model">
+          <span class="model-mark" id="modelMark" aria-hidden="true"></span>
+          <span id="modelName">Choose a model</span>
+          <span class="model-chevron" aria-hidden="true"></span>
         </button>
-        <button class="icon-button stop" id="stop" type="button" aria-label="Stop response" title="Stop response"
-          hidden>
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <rect x="7" y="7" width="10" height="10" rx="2" />
-          </svg>
-        </button>
-      </form>
-      <button class="model" id="model" type="button" aria-haspopup="dialog" aria-controls="settings"
-        aria-expanded="false" aria-label="Choose a model" title="Choose a model">
-        <span class="model-mark" id="modelMark" aria-hidden="true"></span>
-        <span id="modelName">Choose a model</span>
-        <span class="model-chevron" aria-hidden="true"></span>
-      </button>
+      </div>
       <p class="connection-status" id="connectionStatus" role="status" hidden></p>
       <div class="connection-status" id="signInAction" hidden>
         <button class="sign-in-button" id="openSignIn" type="button">sign in</button>

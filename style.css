@@ -23,7 +23,8 @@
   --pill: 999px;
   --panel-radius: 24px;
   --composer-width: 504px;
-  --chat-width: 720px;
+  --chat-width: 840px;
+  --chat-edge: clamp(12px, 3vw, 36px);
   --ease: cubic-bezier(.2, .7, .2, 1);
   --dur-fast: 160ms;
   --dur-base: 260ms;
@@ -415,17 +416,48 @@ body:has(.app.is-chat) .node-background {
   align-self: center;
 }
 
+.app.is-chat {
+  padding: max(8px, env(safe-area-inset-top)) max(var(--chat-edge), env(safe-area-inset-right))
+    max(10px, env(safe-area-inset-bottom)) max(var(--chat-edge), env(safe-area-inset-left));
+}
+
 .app.is-chat .dock {
   grid-row: 3;
   width: min(100%, var(--chat-width));
-  padding-top: 12px;
-  padding-bottom: max(0px, calc(16px - env(safe-area-inset-bottom)));
+  padding-top: 8px;
 }
 
-.is-chat .composer {
-  min-height: 56px;
-  border-radius: var(--panel-radius);
+.is-chat .composer-controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  padding: 3px 6px 3px 0;
+  border: 1px solid var(--line);
+  border-radius: 18px;
   background: var(--surface);
+  transition: border-color var(--fast) var(--ease);
+}
+
+.is-chat .composer-controls:focus-within { border-color: var(--accent); }
+
+.is-chat .composer {
+  flex: 1;
+  min-width: 0;
+  padding-left: 16px;
+  border: 0;
+  background: transparent;
+}
+
+.is-chat .model {
+  flex: none;
+  margin: 0;
+  max-width: 40%;
+}
+
+.is-chat #modelName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .is-chat .topbar .wordmark {
@@ -632,11 +664,12 @@ body:has(.app.is-chat) .node-background {
 .messages {
   width: min(100%, var(--chat-width));
   margin: 0 auto;
-  padding: clamp(24px, 7vh, 64px) 0 12px;
+  padding: clamp(12px, 2.5dvh, 24px) 0 8px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 18px;
   font-size: 16px;
+  line-height: 1.55;
 }
 
 .message {
@@ -659,7 +692,7 @@ body:has(.app.is-chat) .node-background {
 .user {
   align-self: flex-end;
   max-width: 80%;
-  padding: 12px 16px;
+  padding: 8px 14px;
   border-radius: var(--menu-radius);
   background: var(--surface);
   box-shadow: inset 0 0 0 1px var(--border);
@@ -673,7 +706,7 @@ body:has(.app.is-chat) .node-background {
   display: flex;
   gap: 8px;
   align-items: center;
-  margin: 0 0 12px;
+  margin: 0 0 8px;
   font-size: 13px;
   font-weight: 500;
 }
@@ -698,7 +731,7 @@ body:has(.app.is-chat) .node-background {
 .agent .message-body > :last-child { margin-block-end: 0; }
 
 .agent .message-body :is(p, ul, ol, blockquote) {
-  margin-block: 0 12px;
+  margin-block: 0 10px;
 }
 
 .agent .message-body :is(h1, h2, h3, h4, h5, h6) {
@@ -1066,6 +1099,9 @@ dialog .key-error {
 }
 
 @media (max-width: 450px) {
+  .is-chat .model { padding-inline: 10px; }
+  .is-chat #modelName { display: none; }
+
   .picker-columns { display: none; }
   .model-option {
     grid-template-columns: var(--picker-icon) minmax(0, 1fr) var(--picker-check);
