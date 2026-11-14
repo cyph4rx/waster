@@ -18,7 +18,7 @@
   <div class="dots" aria-hidden="true"></div>
   <main class="app opening" id="app">
     <header class="topbar" id="topbar" hidden>
-      <p class="wordmark">W<strong>ä</strong>ster</p>
+      <p class="wordmark">Wäster</p>
       <button class="icon-button" id="newChat" type="button" aria-label="New conversation" title="New conversation">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
           aria-hidden="true">
@@ -33,8 +33,8 @@
 
     <div class="dock" id="dock">
       <div class="brand" id="brand">
-        <h1 class="wordmark">W<strong>ä</strong>ster</h1>
-        <p class="slogan">the water wäster, built in sweden</p>
+        <h1 class="wordmark">Wäster</h1>
+        <p class="slogan">an ai agent wrapper meant to run on the web</p>
       </div>
       <form class="composer" id="composer">
         <label class="visually-hidden" for="prompt">Message agent</label>
@@ -50,12 +50,10 @@
           </svg>
         </button>
       </form>
-      <button class="model" id="model" type="button" aria-haspopup="dialog" aria-controls="settings" aria-expanded="false" aria-label="Choose a model"
-        title="Choose a model">
+      <button class="model" id="model" type="button" aria-haspopup="dialog" aria-controls="settings"
+        aria-expanded="false" aria-label="Choose a model" title="Choose a model">
         <span class="model-mark" id="modelMark" aria-hidden="true"></span>
-        <span id="modelName">Choose a model</span><span class="provider" aria-hidden="true">·</span><span
-          class="provider">via
-          Groq</span>
+        <span id="modelName">Choose a model</span><span class="provider" aria-hidden="true"></span>
         <span class="model-chevron" aria-hidden="true"></span>
       </button>
       <p class="connection-status" id="connectionStatus" role="status" hidden></p>
@@ -81,10 +79,10 @@
       <div class="model-options" id="modelOptions" role="radiogroup" aria-label="Models">
         <p id="modelStatus" role="status">Loading models…</p>
       </div>
-      <label class="motion-option">
+      <!-- <label class="motion-option">
         Animate background
         <input type="checkbox" role="switch" id="backgroundMotion">
-      </label>
+      </label> -->
     </div>
   </dialog>
 
@@ -248,7 +246,7 @@
     });
 
     let animateBackground = true;
-    try { animateBackground = localStorage.getItem("waster-animate-background") !== "false"; } catch {}
+    try { animateBackground = localStorage.getItem("waster-animate-background") !== "false"; } catch { }
     function syncBackgroundMotion() {
       backgroundMotion.checked = animateBackground && !motionPreference.matches;
       backgroundMotion.disabled = motionPreference.matches;
@@ -257,7 +255,7 @@
     backgroundMotion.addEventListener("change", () => {
       animateBackground = backgroundMotion.checked;
       syncBackgroundMotion();
-      try { localStorage.setItem("waster-animate-background", String(animateBackground)); } catch {}
+      try { localStorage.setItem("waster-animate-background", String(animateBackground)); } catch { }
     });
     motionPreference.addEventListener("change", () => {
       if (motionPreference.matches) composerMotion?.cancel();
@@ -359,13 +357,13 @@
         modelStatus.textContent = "No models available.";
         if (config.models.length) {
           let saved;
-          try { saved = sessionStorage.getItem("waster-model"); } catch {}
+          try { saved = sessionStorage.getItem("waster-model"); } catch { }
           selectModel(config.models.find(option => option.id === saved) ?? config.models[0]);
         }
         if (!configured) status.textContent = "Set GROQ_API_KEY on the server to start chatting.";
       } catch {
         byId("modelStatus").textContent = "Couldn’t load models.";
-        status.textContent = "Open Wäster through its server to connect to Groq.";
+        status.textContent = "Wäster is meant to be run on a server. Check your connection and try again.";
       }
       status.hidden = !status.textContent;
       refreshSignIn();
@@ -373,7 +371,7 @@
 
     function selectModel(choice) {
       model = choice;
-      try { sessionStorage.setItem("waster-model", model.id); } catch {}
+      try { sessionStorage.setItem("waster-model", model.id); } catch { }
       byId("modelName").textContent = model.name;
       byId("modelMark").dataset.brand = model.brand;
       modelButton.setAttribute("aria-label", "Choose a model. Current model: " + model.name);
@@ -535,7 +533,7 @@
         const fence = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(line);
         if (block) {
           if (fence && fence[1][0] === block.fence[0] &&
-              fence[1].length >= block.fence.length && !fence[2].trim()) {
+            fence[1].length >= block.fence.length && !fence[2].trim()) {
             highlightCode(block);
             block = null;
           } else {
