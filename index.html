@@ -12,13 +12,15 @@
   <link rel="icon"
     href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23161616'/%3E%3Ctext x='16' y='24' text-anchor='middle' fill='%23f5f5f6' font-size='24' font-family='sans-serif'%3E%C3%A4%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="./style.css">
+  <script src="./background.js" defer></script>
 </head>
 
 <body>
-  <div class="dots" aria-hidden="true"></div>
+  <canvas class="node-background" id="nodeBackground" aria-hidden="true"></canvas>
+  <a class="skip-link" href="#prompt">Skip to message field</a>
   <main class="app opening" id="app">
     <header class="topbar" id="topbar" hidden>
-      <p class="wordmark">Wäster</p>
+      <p class="wordmark">W<strong>ä</strong>ster</p>
       <button class="icon-button" id="newChat" type="button" aria-label="New conversation" title="New conversation">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
           aria-hidden="true">
@@ -28,13 +30,13 @@
     </header>
 
     <section class="thread" id="thread" aria-label="Conversation" tabindex="0" hidden>
-      <div class="messages" id="messages" role="log" aria-live="off"></div>
+      <div class="messages" id="messages" role="log" aria-live="polite"></div>
     </section>
 
     <div class="dock" id="dock">
       <div class="brand" id="brand">
-        <h1 class="wordmark">Wäster</h1>
-        <p class="slogan">an ai agent wrapper meant to run on the web</p>
+        <h1 class="wordmark">W<strong>ä</strong>ster</h1>
+        <p class="slogan">an ai chat for the web</p>
       </div>
       <form class="composer" id="composer">
         <label class="visually-hidden" for="prompt">Message agent</label>
@@ -53,7 +55,7 @@
       <button class="model" id="model" type="button" aria-haspopup="dialog" aria-controls="settings"
         aria-expanded="false" aria-label="Choose a model" title="Choose a model">
         <span class="model-mark" id="modelMark" aria-hidden="true"></span>
-        <span id="modelName">Choose a model</span><span class="provider" aria-hidden="true"></span>
+        <span id="modelName">Choose a model</span><span class="provider">via Groq</span>
         <span class="model-chevron" aria-hidden="true"></span>
       </button>
       <p class="connection-status" id="connectionStatus" role="status" hidden></p>
@@ -79,10 +81,10 @@
       <div class="model-options" id="modelOptions" role="radiogroup" aria-label="Models">
         <p id="modelStatus" role="status">Loading models…</p>
       </div>
-      <!-- <label class="motion-option">
+      <label class="motion-option">
         Animate background
-        <input type="checkbox" role="switch" id="backgroundMotion">
-      </label> -->
+        <input type="checkbox" role="switch" id="backgroundMotion" checked>
+      </label>
     </div>
   </dialog>
 
@@ -153,7 +155,6 @@
     const modelButton = byId("model");
     const modelOptions = byId("modelOptions");
     const motionPreference = matchMedia("(prefers-reduced-motion: reduce)");
-    const backgroundMotion = byId("backgroundMotion");
     const modelNotes = new Map([
       ["qwen/qwen3.8-27b", "Coding and detailed answers"],
       ["openai/gpt-oss-20b", "Quick replies and simple tasks"],
@@ -245,30 +246,9 @@
       options[next].focus();
     });
 
-    let animateBackground = true;
-    // Honor a saved choice when the switch is available to change it.
-    if (backgroundMotion) {
-      try { animateBackground = localStorage.getItem("waster-animate-background") !== "false"; } catch { }
-    }
-    function syncBackgroundMotion() {
-      const enabled = animateBackground && !motionPreference.matches;
-      if (backgroundMotion) {
-        backgroundMotion.checked = enabled;
-        backgroundMotion.disabled = motionPreference.matches;
-      }
-      document.body.classList.toggle("pause-background", !enabled || document.hidden);
-    }
-    backgroundMotion?.addEventListener("change", () => {
-      animateBackground = backgroundMotion.checked;
-      syncBackgroundMotion();
-      try { localStorage.setItem("waster-animate-background", String(animateBackground)); } catch { }
-    });
     motionPreference.addEventListener("change", () => {
       if (motionPreference.matches) composerMotion?.cancel();
-      syncBackgroundMotion();
     });
-    document.addEventListener("visibilitychange", syncBackgroundMotion);
-    syncBackgroundMotion();
 
     const signInDialog = byId("signInDialog");
     const password = byId("sitePassword");
@@ -532,7 +512,11 @@
     function renderReply(output) {
       let pending = "";
       let block = null;
-      const preview = document.createTextNode("");
+      const preview = document.createElement("span");
+      preview.className = "stream-caret";
+      preview.setAttribute("aria-hidden", "true");
+      const partialLine = document.createTextNode("");
+      output.append(partialLine);
       output.append(preview);
 
       function appendLine(line, newline) {
@@ -572,14 +556,16 @@
           const lines = pending.split("\n");
           pending = lines.pop();
           preview.remove();
+          partialLine.remove();
           for (const line of lines) appendLine(line.replace(/\r$/, ""), "\n");
           // Keep partial lines visible without committing a possible split fence.
           const possibleFence = /^ {0,3}(?:`{1,2}|~{1,2})$|^ {0,3}(?:`{3,}|~{3,})/.test(pending);
-          preview.data = possibleFence ? "" : pending;
-          (block?.code ?? output).append(preview);
+          partialLine.data = possibleFence ? "" : pending;
+          (block?.code ?? output).append(partialLine, preview);
         },
         finish() {
           preview.remove();
+          partialLine.remove();
           if (pending) appendLine(pending.replace(/\r$/, ""), "");
           if (block) highlightCode(block);
         }
@@ -592,10 +578,10 @@
       active = controller;
       const reply = addReply(selectedModel);
       const output = reply.querySelector(".message-body");
+      output.setAttribute("aria-busy", "true");
       const renderer = renderReply(output);
       const status = reply.querySelector(".status");
       status.textContent = "Waiting for a reply…";
-      status.classList.add("is-waiting");
       announcement.textContent = status.textContent;
       updateComposer();
       scrollToLatest();
@@ -625,7 +611,6 @@
           replyText += token;
           renderer.push(token);
           status.textContent = "";
-          status.classList.remove("is-waiting");
           if (follow) scrollToLatest();
         }
         if (active !== controller) return;
@@ -644,8 +629,8 @@
         if (active === controller) {
           const follow = nearBottom();
           renderer.finish();
+          output.removeAttribute("aria-busy");
           active = null;
-          status.classList.remove("is-waiting");
           reply.querySelector(".actions").hidden = false;
           const copy = reply.querySelector(".copy");
           copy.hidden = !replyText.trim();

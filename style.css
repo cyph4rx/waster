@@ -32,6 +32,8 @@
   --fast: var(--dur-fast);
   --base: var(--dur-base);
   --reveal-distance: 16px;
+  --message-reveal: 8px;
+  --dur-message: 200ms;
   --control-radius: 8px;
   --menu-radius: 14px;
   --border: rgb(255 255 255 / .10);
@@ -95,54 +97,34 @@ a {
   white-space: nowrap;
 }
 
-.dots {
+.node-background {
   position: fixed;
   inset: 0;
-  overflow: hidden;
+  width: 100%;
+  height: 100%;
   pointer-events: none;
-  opacity: .84;
+  opacity: .25;
+  mask-image: radial-gradient(ellipse 78% 78% at 50% 48%, #000 22%, transparent 100%);
   transition: opacity var(--base) var(--ease);
 }
 
-body:has(.app.is-chat) .dots {
-  opacity: .62;
+body:has(.app.is-chat) .node-background {
+  opacity: .14;
 }
 
-.dots::before,
-.dots::after {
-  content: "";
-  position: absolute;
-  inset: -88px;
+.skip-link {
+  position: fixed;
+  inset: 12px auto auto 12px;
+  z-index: 2;
+  padding: 8px 12px;
+  border-radius: var(--control-radius);
+  background: var(--surface);
+  color: var(--text);
+  transform: translateY(calc(-100% - 16px));
 }
 
-.dots::before {
-  background: radial-gradient(circle at center, rgb(255 255 255 / .09) 1px, transparent 1.65px)
-    0 0 / 24px 24px;
-  mask-image: radial-gradient(ellipse 72% 60% at 49% 51%, #000 18%, transparent 95%);
-  animation: dots-back 26s var(--ease) infinite alternate;
-}
-
-.dots::after {
-  background: radial-gradient(circle at center, rgb(255 255 255 / .22) 1.4px, transparent 2px)
-    0 0 / 44px 44px;
-  mask-image: radial-gradient(ellipse 57% 49% at 47% 53%, #000 9%, transparent 90%);
-  animation: dots-front 16s ease-in-out infinite alternate;
-}
-
-body.pause-background .dots::before,
-body.pause-background .dots::after {
-  animation-play-state: paused;
-}
-
-@keyframes dots-back {
-  from { transform: translate3d(36px, 18px, 0); }
-  to { transform: translate3d(-36px, -22px, 0); }
-}
-
-@keyframes dots-front {
-  0% { transform: translate3d(-58px, 28px, 0); opacity: .72; }
-  52% { transform: translate3d(4px, -18px, 0); opacity: 1; }
-  100% { transform: translate3d(58px, -42px, 0); opacity: .82; }
+.skip-link:focus {
+  transform: none;
 }
 
 .model-chevron {
@@ -625,7 +607,11 @@ dialog .motion-option input:disabled { opacity: .6; }
 
 .message {
   min-width: 0;
-  animation: appear var(--base) var(--ease) both;
+  animation: message-in var(--dur-message) var(--ease) both;
+}
+
+@keyframes message-in {
+  from { opacity: 0; transform: translateY(var(--message-reveal)); }
 }
 
 .is-chat .messages > .message:first-child {
@@ -638,9 +624,9 @@ dialog .motion-option input:disabled { opacity: .6; }
 
 .user {
   align-self: flex-end;
-  max-width: 87%;
-  padding: 12px 20px;
-  border-radius: var(--panel-radius);
+  max-width: 80%;
+  padding: 12px 16px;
+  border-radius: var(--menu-radius);
   background: var(--surface);
   box-shadow: inset 0 0 0 1px var(--border);
 }
@@ -781,19 +767,17 @@ dialog .motion-option input:disabled { opacity: .6; }
   animation: fade-in var(--fast) var(--ease) both;
 }
 
-.status.is-waiting::before {
-  content: "";
+.stream-caret {
   display: inline-block;
-  width: 6px;
-  height: 6px;
-  margin-inline-end: 8px;
-  vertical-align: 2px;
-  border-radius: var(--pill);
-  background: currentColor;
-  animation: waiting 1.2s var(--ease) infinite alternate;
+  width: 2px;
+  height: 1em;
+  margin-inline-start: 3px;
+  vertical-align: -.1em;
+  background: var(--accent);
+  animation: caret-pulse .75s var(--ease) infinite alternate;
 }
 
-@keyframes waiting {
+@keyframes caret-pulse {
   from {
     opacity: .35;
   }
@@ -965,8 +949,6 @@ dialog .key-error {
 }
 
 @media (max-width: 600px) {
-  .dots::after { background-size: 36px 36px; }
-
   .brand {
     margin-bottom: 20px;
   }

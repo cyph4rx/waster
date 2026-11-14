@@ -14,6 +14,7 @@ const staticFiles = new Map([
   ["/", ["index.html", "text/html; charset=utf-8"]],
   ["/index.html", ["index.html", "text/html; charset=utf-8"]],
   ["/style.css", ["style.css", "text/css; charset=utf-8"]],
+  ["/background.js", ["background.js", "text/javascript; charset=utf-8"]],
   ["/prism.js", ["prism.js", "text/javascript; charset=utf-8"]],
   ["/openai.png", ["openai.png", "image/png"]]
 ]);
