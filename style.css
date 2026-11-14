@@ -495,8 +495,8 @@ dialog .motion-option input:disabled { opacity: .6; }
 }
 
 .send:not(:disabled),
-.stop {
-  color: var(--accent-ink);
+.send:hover:not(:disabled) {
+  color: var(--text);
 }
 
 .icon-button:is(.send, .stop):active:not(:disabled) {
@@ -510,28 +510,21 @@ dialog .motion-option input:disabled { opacity: .6; }
 
 .send:hover:disabled { color: var(--muted); }
 
-.send::before,
 .stop::before {
   content: "";
   position: absolute;
   z-index: -1;
   inset: 2px;
   border-radius: var(--pill);
-  background: var(--raised);
+  background: var(--accent);
   transition: background-color var(--fast) var(--ease);
 }
 
-.send:not(:disabled)::before,
-.stop::before {
-  background: var(--accent);
-}
-
-.send:hover:not(:disabled),
+.stop,
 .stop:hover {
   color: var(--accent-ink);
 }
 
-.send:hover:not(:disabled)::before,
 .stop:hover::before {
   background: var(--text);
 }
