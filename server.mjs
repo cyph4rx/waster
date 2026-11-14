@@ -5,6 +5,9 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 
 const { GROQ_API_KEY, WASTER_PASSWORD, HOST = "127.0.0.1", PORT = "3000" } = process.env;
+const personality = process.env.WASTER_PERSONALITY?.trim();
+const systemMessage = personality ? { role: "system", content: personality } : null;
+const systemBudget = systemMessage ? Buffer.byteLength(systemMessage.content, "utf8") + 32 : 0;
 const loopback = HOST === "127.0.0.1" || HOST === "::1";
 if (!loopback && !WASTER_PASSWORD) {
   throw new Error("Set WASTER_PASSWORD before listening on a public interface.");
@@ -104,7 +107,7 @@ async function chat(req, res) {
   const completion = Math.min(model.output, 4096);
   // Conservative text budget using UTF-8 byte counts plus message framing.
   // Groq applies the exact token limit with its model tokenizer.
-  const budget = model.context - completion - 128;
+  const budget = model.context - completion - 128 - systemBudget;
   const window = [];
   let count = 0;
   for (let index = messages.length - 1; index >= 0; index--) {
@@ -115,6 +118,7 @@ async function chat(req, res) {
   }
   if (!window.length) return error(res, 400, "This message exceeds the selected model’s context limit.");
   if (window[0].role === "assistant") window.shift();
+  if (systemMessage) window.unshift(systemMessage);
   if (Date.now() >= resetAt) {
     requests = 0;
     resetAt = Date.now() + 60_000;

@@ -38,6 +38,14 @@ Push this folder to GitHub and connect it to a [free Render Web Service](https:/
 
 Add the key and password in Render’s **Environment** settings so they stay on the server. Open your Render HTTPS URL and click **Sign in**. Render’s free service can take a minute to wake up after sitting idle. [Render free limits](https://render.com/docs/free)
 
+## Give the AI a personality
+
+Add `WASTER_PERSONALITY` in Render’s **Environment** settings, then save and redeploy. It applies to every model in the picker. Leave it empty to use the models’ usual behavior.
+
+> You are Wäster. Be casual, direct, and a little dry. Keep simple answers short. When you give code, put it in fenced code blocks and explain what to change.
+
+For local use, run `$env:WASTER_PERSONALITY = 'Your personality instructions here'` in PowerShell before starting the server. Start a new chat to try it without earlier replies shaping the conversation.
+
 ## Use it in Google Sites
 
 Go to **Pages → + → Full page embed**, paste your Render URL, and publish. For an existing page, use **Insert → Embed → By URL**.
