@@ -366,7 +366,7 @@
           try { saved = sessionStorage.getItem("waster-model"); } catch { }
           selectModel(config.models.find(option => option.id === saved) ?? config.models[0]);
         }
-        if (!configured) status.textContent = "Set GROQ_API_KEY on the server to start chatting.";
+        if (!configured) status.textContent = config.configurationError ?? "Set GROQ_API_KEY on the server to start chatting.";
       } catch {
         byId("modelStatus").textContent = "Couldn’t load models.";
         status.textContent = "Wäster was meant to be run on a server, check your connection and try again.";
