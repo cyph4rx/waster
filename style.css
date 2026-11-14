@@ -39,6 +39,13 @@
   --glass-halo: conic-gradient(transparent 80deg, #505050, #b5b5b5, #666 245deg, transparent 280deg);
   --glass-inset: inset 0 0 5px rgb(255 255 255 / .48), inset 0 31px 26px #000;
   --glass-radius: 12px;
+  --code-bg: #0c0c0c;
+  --code-header: #171717;
+  --code-keyword: #d0baff;
+  --code-string: #bad2bb;
+  --code-number: #e0c4a5;
+  --code-name: #b7cce4;
+  --font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
 }
 
 *,
@@ -515,6 +522,7 @@ dialog .motion-option input {
   padding: 12px 20px;
   border-radius: var(--panel-radius);
   background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--border);
 }
 
 .agent {
@@ -530,10 +538,108 @@ dialog .motion-option input {
   font-weight: 500;
 }
 
+.agent-name::after {
+  content: "";
+  flex: 1;
+  margin-inline-start: 8px;
+  border-top: 1px solid var(--border);
+}
+
 .message-body {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+.inline-code {
+  padding: .12em .35em;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--raised);
+  color: var(--text);
+  font: .9em var(--font-mono);
+}
+
+.code-card {
+  overflow: hidden;
+  margin: 12px 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--menu-radius);
+  background: var(--code-bg);
+  white-space: normal;
+  animation: fade-in var(--base) var(--ease) both;
+  transition: border-color var(--base) var(--ease);
+}
+
+.code-card:focus-within {
+  border-color: var(--line);
+}
+
+.code-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-inline: 16px 6px;
+  border-bottom: 1px solid var(--border);
+  background: var(--code-header);
+}
+
+.code-language {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.code-copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 80px;
+  min-height: 44px;
+  padding-inline: 8px;
+  border: 0;
+  border-radius: var(--control-radius);
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  transition: color var(--fast) var(--ease), background-color var(--fast) var(--ease);
+}
+
+.code-copy:hover,
+.code-copy.is-copied {
+  background: var(--raised);
+  color: var(--text);
+}
+
+.code-scroll {
+  overflow: auto;
+  max-height: min(50dvh, 440px);
+  margin: 0;
+  padding: 16px;
+  color: var(--text);
+  font: 400 13px/1.65 var(--font-mono);
+  tab-size: 4;
+  white-space: pre;
+  overflow-wrap: normal;
+  scrollbar-color: var(--line) transparent;
+}
+
+.code-card :focus-visible {
+  outline-offset: -3px;
+}
+
+.code-scroll code {
+  font: inherit;
+}
+
+.code-card .token:is(.comment, .prolog, .doctype, .punctuation, .operator) { color: var(--muted); }
+.code-card .token:is(.keyword, .tag, .atrule, .selector) { color: var(--code-keyword); }
+.code-card .token:is(.string, .char, .attr-value, .regex, .inserted) { color: var(--code-string); }
+.code-card .token:is(.boolean, .number, .constant, .symbol, .deleted) { color: var(--code-number); }
+.code-card .token:is(.function, .class-name, .property, .attr-name, .builtin) { color: var(--code-name); }
 
 .status {
   color: var(--muted);

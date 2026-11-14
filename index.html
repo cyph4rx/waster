@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#000000">
   <meta name="description" content="Wäster is a minimalist chat for ai.">
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'none'; style-src 'self'; script-src 'unsafe-inline'; img-src 'self' data:; font-src data:; connect-src 'self'; base-uri 'none'; form-action 'none'">
+    content="default-src 'none'; style-src 'self'; script-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src data:; connect-src 'self'; base-uri 'none'; form-action 'none'">
   <title>Wäster</title>
   <link rel="icon"
     href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23161616'/%3E%3Ctext x='16' y='24' text-anchor='middle' fill='%23f5f5f6' font-size='24' font-family='sans-serif'%3E%C3%A4%3C/text%3E%3C/svg%3E">
@@ -119,6 +119,23 @@
     </article>
   </template>
 
+  <template id="codeTemplate">
+    <section class="code-card">
+      <header class="code-toolbar">
+        <span class="code-language"></span>
+        <button class="code-copy" type="button" aria-label="Copy code">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+            stroke-linejoin="round" aria-hidden="true">
+            <path d="M9 9h11v11H9zM15 9V4H4v11h5" />
+          </svg>
+          <span>Copy</span>
+        </button>
+      </header>
+      <pre class="code-scroll" tabindex="0"><code></code></pre>
+    </section>
+  </template>
+
+  <script src="./prism.js"></script>
   <script>
     const endpoint = "/api/chat";
     const byId = id => document.getElementById(id);
@@ -322,6 +339,22 @@
       void requestReply();
     }
 
+    async function copyText(value, source, label) {
+      try {
+        await navigator.clipboard.writeText(value);
+        announcement.textContent = label + " copied.";
+        return true;
+      } catch {
+        const selection = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(source);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        announcement.textContent = label + " selected for copying.";
+        return false;
+      }
+    }
+
     function addReply(selectedModel) {
       const reply = byId("replyTemplate").content.firstElementChild.cloneNode(true);
       reply.querySelector(".model-mark").dataset.brand = selectedModel.brand;
@@ -329,20 +362,6 @@
       reply.setAttribute("aria-label", selectedModel.name + " response");
       messages.append(reply);
       lastReply = reply;
-      reply.querySelector(".copy").addEventListener("click", async () => {
-        const value = reply.querySelector(".message-body").textContent;
-        try {
-          await navigator.clipboard.writeText(value);
-          announcement.textContent = "Reply copied.";
-        } catch {
-          const selection = window.getSelection();
-          const range = document.createRange();
-          range.selectNodeContents(reply.querySelector(".message-body"));
-          selection.removeAllRanges();
-          selection.addRange(range);
-          announcement.textContent = "Reply selected for copying.";
-        }
-      });
       reply.querySelector(".retry").addEventListener("click", () => {
         if (active || reply !== lastReply) return;
         function regenerate() {
@@ -355,12 +374,133 @@
       return reply;
     }
 
+    const languageNames = new Map(Object.entries({
+      js: "JavaScript", javascript: "JavaScript", ts: "TypeScript", typescript: "TypeScript",
+      py: "Python", python: "Python", html: "HTML", markup: "HTML", xml: "XML",
+      css: "CSS", json: "JSON", jsx: "JSX", tsx: "TSX", sql: "SQL",
+      sh: "Shell", bash: "Bash", shell: "Shell", powershell: "PowerShell", ps1: "PowerShell",
+      cs: "C#", csharp: "C#", cpp: "C++", c: "C", java: "Java", lua: "Lua", luau: "Luau",
+      gdscript: "GDScript", yaml: "YAML", yml: "YAML", go: "Go", rust: "Rust"
+    }));
+    const languageAliases = new Map(Object.entries({
+      "c++": "cpp", "c#": "csharp", shell: "bash", ps1: "powershell", luau: "lua"
+    }));
+
+    function createCodeBlock(target, language) {
+      const card = byId("codeTemplate").content.firstElementChild.cloneNode(true);
+      const name = languageNames.get(language) ?? (language || "Code");
+      const code = card.querySelector("code");
+      const copy = card.querySelector(".code-copy");
+      const caption = copy.querySelector("span");
+      const grammarName = languageAliases.get(language) ?? language;
+      card.querySelector(".code-language").textContent = name;
+      card.querySelector("pre").setAttribute("aria-label", name + " code");
+      let feedbackTimer;
+      copy.addEventListener("click", async () => {
+        const copied = await copyText(code.textContent, code, "Code");
+        caption.textContent = copied ? "Copied" : "Selected";
+        copy.classList.toggle("is-copied", copied);
+        clearTimeout(feedbackTimer);
+        feedbackTimer = setTimeout(() => {
+          caption.textContent = "Copy";
+          copy.classList.remove("is-copied");
+        }, 1600);
+      });
+      target.append(card);
+      return { code, grammarName };
+    }
+
+    function highlightCode(block) {
+      const prism = window.Prism;
+      const languages = prism?.languages;
+      if (!languages || !Object.hasOwn(languages, block.grammarName)) return;
+      const grammar = languages[block.grammarName];
+      if (typeof grammar !== "object" || !grammar) return;
+      const value = block.code.textContent;
+      if (value.length > 40_000) return;
+
+      // Tokenize locally and build text nodes, including for model-generated HTML.
+      function appendTokens(target, tokens) {
+        for (const token of tokens) {
+          if (typeof token === "string") {
+            target.append(token);
+          } else {
+            const span = document.createElement("span");
+            span.className = "token " + token.type;
+            appendTokens(span, Array.isArray(token.content) ? token.content : [token.content]);
+            target.append(span);
+          }
+        }
+      }
+      const highlighted = document.createDocumentFragment();
+      appendTokens(highlighted, prism.tokenize(value, grammar));
+      block.code.replaceChildren(highlighted);
+    }
+
+    function renderReply(output) {
+      let pending = "";
+      let block = null;
+      const preview = document.createTextNode("");
+      output.append(preview);
+
+      function appendLine(line, newline) {
+        const fence = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(line);
+        if (block) {
+          if (fence && fence[1][0] === block.fence[0] &&
+              fence[1].length >= block.fence.length && !fence[2].trim()) {
+            highlightCode(block);
+            block = null;
+          } else {
+            block.code.append(line + newline);
+          }
+          return;
+        }
+        if (fence && !(fence[1][0] === "`" && fence[2].includes("`"))) {
+          const language = (/^[\w+#.-]{1,24}/.exec(fence[2].trim())?.[0] ?? "").toLowerCase();
+          block = { ...createCodeBlock(output, language), fence: fence[1] };
+          return;
+        }
+
+        const fragments = line.split(/(`[^`]+`)/g);
+        for (let index = 0; index < fragments.length; index++) {
+          if (index % 2 === 0) output.append(fragments[index]);
+          else {
+            const code = document.createElement("code");
+            code.className = "inline-code";
+            code.textContent = fragments[index].slice(1, -1);
+            output.append(code);
+          }
+        }
+        output.append(newline);
+      }
+
+      return {
+        push(chunk) {
+          pending += chunk;
+          const lines = pending.split("\n");
+          pending = lines.pop();
+          preview.remove();
+          for (const line of lines) appendLine(line.replace(/\r$/, ""), "\n");
+          // Keep partial lines visible without committing a possible split fence.
+          const possibleFence = /^ {0,3}(?:`{1,2}|~{1,2})$|^ {0,3}(?:`{3,}|~{3,})/.test(pending);
+          preview.data = possibleFence ? "" : pending;
+          (block?.code ?? output).append(preview);
+        },
+        finish() {
+          preview.remove();
+          if (pending) appendLine(pending.replace(/\r$/, ""), "");
+          if (block) highlightCode(block);
+        }
+      };
+    }
+
     async function requestReply() {
       const selectedModel = model;
       const controller = new AbortController();
       active = controller;
       const reply = addReply(selectedModel);
       const output = reply.querySelector(".message-body");
+      const renderer = renderReply(output);
       const status = reply.querySelector(".status");
       status.textContent = "Waiting for a reply…";
       status.classList.add("is-waiting");
@@ -391,7 +531,7 @@
           if (active !== controller) return;
           const follow = nearBottom();
           replyText += token;
-          output.textContent = replyText;
+          renderer.push(token);
           status.textContent = "";
           status.classList.remove("is-waiting");
           if (follow) scrollToLatest();
@@ -410,11 +550,16 @@
         announcement.textContent = status.textContent;
       } finally {
         if (active === controller) {
+          const follow = nearBottom();
+          renderer.finish();
           active = null;
           status.classList.remove("is-waiting");
           reply.querySelector(".actions").hidden = false;
-          reply.querySelector(".copy").hidden = !replyText.trim();
+          const copy = reply.querySelector(".copy");
+          copy.hidden = !replyText.trim();
+          copy.addEventListener("click", () => void copyText(replyText, output, "Reply"));
           updateComposer();
+          if (follow) scrollToLatest();
         }
       }
     }
