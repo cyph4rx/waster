@@ -35,9 +35,10 @@
   --menu-radius: 14px;
   --border: rgb(255 255 255 / .10);
   --border-strong: rgb(255 255 255 / .20);
-  --glass-fill: rgb(255 255 255 / .10);
-  --glass-hover: rgb(255 255 255 / .17);
-  --glass-edge: rgb(255 255 255 / .28);
+  --glass-face: linear-gradient(90deg, #464646, #757575, #494949);
+  --glass-halo: conic-gradient(transparent 80deg, #505050, #b5b5b5, #666 245deg, transparent 280deg);
+  --glass-inset: inset 0 0 5px rgb(255 255 255 / .48), inset 0 31px 26px #000;
+  --glass-radius: 12px;
 }
 
 *,
@@ -168,23 +169,68 @@ body.pause-background .dots::before {
   margin-top: clamp(16px, 4dvh, 32px);
 }
 
+/*
+ * Adapted from "Ai Button" by Spacious74 (VishalS), Uiverse.
+ * https://uiverse.io/Spacious74/lazy-dragonfly-64
+ * MIT License. Copyright (c) 2026 Spacious74 (VishalS)
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
 .sign-in-button,
 #signInSubmit {
+  position: relative;
+  isolation: isolate;
   min-height: 44px;
   padding-inline: 22px;
-  border: 1px solid var(--glass-edge);
-  border-top-color: var(--text);
-  border-radius: var(--pill);
-  background: var(--glass-fill);
+  border: 0;
+  border-radius: var(--glass-radius);
+  background: var(--glass-face);
+  box-shadow: var(--glass-inset), 0 5px 10px rgb(0 0 0 / .65);
   color: var(--text);
+  text-shadow: 0 1px 2px #000;
   font-weight: 600;
-  backdrop-filter: blur(12px);
-  transition: background-color var(--fast) var(--ease);
+  transition: box-shadow var(--base) var(--ease);
 }
 
-.sign-in-button:hover,
-#signInSubmit:hover {
-  background: var(--glass-hover);
+:is(.sign-in-button, #signInSubmit)::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background: var(--glass-halo);
+  filter: blur(10px);
+  opacity: 0;
+  transition: opacity var(--base) var(--ease), filter var(--base) var(--ease);
+}
+
+:is(.sign-in-button, #signInSubmit):is(:hover, :focus-visible):not(:disabled)::before {
+  opacity: .58;
+}
+
+:is(.sign-in-button, #signInSubmit):active:not(:disabled) {
+  box-shadow: var(--glass-inset);
+}
+
+:is(.sign-in-button, #signInSubmit):active:not(:disabled)::before {
+  filter: blur(4px);
 }
 
 dialog .motion-option {
