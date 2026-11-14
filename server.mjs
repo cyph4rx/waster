@@ -1,6 +1,6 @@
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 
@@ -23,7 +23,12 @@ const staticFiles = new Map([
   ["/openai.png", ["openai.png", "image/png"]]
 ]);
 const hash = string => createHash("sha256").update(string).digest();
-const passwordHash = WASTER_PASSWORD ? hash("waster:" + WASTER_PASSWORD) : null;
+const passwordHash = WASTER_PASSWORD ? hash(WASTER_PASSWORD) : null;
+const signingKey = GROQ_API_KEY
+  ? createHmac("sha256", GROQ_API_KEY).update("waster session:" + WASTER_PASSWORD).digest()
+  : randomBytes(32);
+let loginFailures = 0;
+let loginResetAt = 0;
 let running = 0;
 let requests = 0;
 let resetAt = Date.now() + 60_000;
@@ -37,8 +42,7 @@ function error(res, code, message) {
   json(res, code, { error: { message } });
 }
 
-async function chat(req, res) {
-  if (!GROQ_API_KEY) return error(res, 503, "Set GROQ_API_KEY on the Wäster server to start chatting.");
+async function readJson(req, res, limit) {
   if (req.headers["sec-fetch-site"] === "cross-site" || !/^application\/json(?:;|$)/i.test(req.headers["content-type"] ?? "")) {
     return error(res, 415, "Send a same-origin JSON request.");
   }
@@ -46,15 +50,49 @@ async function chat(req, res) {
   let bytes = 0;
   for await (const chunk of req) {
     bytes += chunk.length;
-    if (bytes > 1024 * 1024) {
+    if (bytes > limit) {
       res.setHeader("Connection", "close");
-      return error(res, 413, "This conversation is too large. Start a new chat or shorten the message.");
+      return error(res, 413, "This request is too large.");
     }
     chunks.push(chunk);
   }
-  let input;
-  try { input = JSON.parse(Buffer.concat(chunks).toString("utf8")); }
-  catch { return error(res, 400, "Invalid chat request."); }
+  try { return JSON.parse(Buffer.concat(chunks).toString("utf8")); }
+  catch { return error(res, 400, "Invalid JSON request."); }
+}
+
+function sign(session) {
+  return createHmac("sha256", signingKey).update(session).digest("hex");
+}
+
+function hasSession(req) {
+  if (!passwordHash) return true;
+  const token = /^Bearer (\d+\.[\da-f]{32})\.([\da-f]{64})$/i.exec(req.headers.authorization ?? "");
+  if (!token || Number(token[1].split(".")[0]) <= Date.now()) return false;
+  return timingSafeEqual(Buffer.from(token[2], "hex"), Buffer.from(sign(token[1]), "hex"));
+}
+
+async function login(req, res) {
+  if (!passwordHash) return error(res, 400, "This server does not require a password.");
+  if (Date.now() >= loginResetAt) {
+    loginResetAt = Date.now() + 60_000;
+    loginFailures = 0;
+  }
+  if (loginFailures >= 20) return error(res, 429, "Too many sign-in attempts. Try again in a moment.");
+  const input = await readJson(req, res, 4096);
+  if (res.writableEnded) return;
+  if (typeof input?.password !== "string" || !timingSafeEqual(passwordHash, hash(input.password))) {
+    loginFailures++;
+    return error(res, 401, "That password didn’t match.");
+  }
+  const session = (Date.now() + 12 * 60 * 60 * 1000) + "." + randomBytes(16).toString("hex");
+  return json(res, 200, { token: session + "." + sign(session) });
+}
+
+async function chat(req, res) {
+  if (!hasSession(req)) return error(res, 401, "Sign in to Wäster to send a message.");
+  if (!GROQ_API_KEY) return error(res, 503, "Set GROQ_API_KEY on the Wäster server to start chatting.");
+  const input = await readJson(req, res, 1024 * 1024);
+  if (res.writableEnded) return;
   const model = models.find(item => item.id === input?.model);
   const messages = input?.messages;
   if (!model || !Array.isArray(messages) || messages.length > 500 || messages.at(-1)?.role !== "user" ||
@@ -120,18 +158,15 @@ createServer(async (req, res) => {
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("X-Content-Type-Options", "nosniff");
   try {
-    if (passwordHash) {
-      const auth = /^Basic (\S+)$/i.exec(req.headers.authorization ?? "");
-      const supplied = auth ? Buffer.from(auth[1], "base64").toString("utf8") : "";
-      if (!timingSafeEqual(passwordHash, hash(supplied))) {
-        res.setHeader("WWW-Authenticate", 'Basic realm="Waster", charset="UTF-8"');
-        return error(res, 401, "Sign in to Wäster.");
-      }
-    }
     const pathname = new URL(req.url, "http://localhost").pathname;
     if (req.method === "POST" && pathname === "/api/chat") return await chat(req, res);
+    if (req.method === "POST" && pathname === "/api/sign-in") return await login(req, res);
     if (req.method === "GET" && pathname === "/api/models") {
-      return json(res, 200, { configured: Boolean(GROQ_API_KEY), models: models.map(({ effort, ...model }) => model) });
+      return json(res, 200, {
+        configured: Boolean(GROQ_API_KEY),
+        signInRequired: Boolean(passwordHash),
+        models: models.map(({ effort, ...model }) => model)
+      });
     }
     const file = staticFiles.get(pathname);
     if (!file || !["GET", "HEAD"].includes(req.method)) return error(res, 404, "Page not found.");

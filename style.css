@@ -157,6 +157,16 @@ body.pause-background .dots::before {
 .model-option small { color: var(--muted); }
 .connection-status { text-align: center; color: var(--muted); font-size: 13px; }
 
+.sign-in-button {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--pill);
+  background: var(--composer);
+}
+
+.sign-in-button:hover { background: var(--raised); }
+
 dialog .motion-option {
   display: flex;
   align-items: center;

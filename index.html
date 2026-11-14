@@ -58,6 +58,9 @@
         <span class="model-chevron" aria-hidden="true"></span>
       </button>
       <p class="connection-status" id="connectionStatus" role="status" hidden></p>
+      <div class="connection-status" id="signInAction" hidden>
+        <button class="sign-in-button" id="openSignIn" type="button">Sign in</button>
+      </div>
     </div>
     <div id="announcement" class="visually-hidden" role="status"></div>
   </main>
@@ -77,6 +80,20 @@
       <p>Context includes conversation history and space for the reply.</p>
       <label class="motion-option"><input type="checkbox" id="backgroundMotion" checked> Animate background</label>
     </div>
+  </dialog>
+
+  <dialog id="signInDialog" aria-labelledby="signInTitle">
+    <form id="signInForm">
+      <div class="dialog-header">
+        <h2 id="signInTitle">Sign in to Wäster</h2>
+        <button class="icon-button" id="closeSignIn" type="button" aria-label="Close sign-in">×</button>
+      </div>
+      <label for="sitePassword">Site password</label>
+      <input id="sitePassword" type="password" required maxlength="512" autocomplete="current-password"
+        aria-describedby="signInError" autofocus>
+      <p class="key-error" id="signInError" role="alert" hidden></p>
+      <div class="dialog-actions"><button id="signInSubmit" type="submit">Sign in</button></div>
+    </form>
   </dialog>
 
   <template id="replyTemplate">
@@ -116,7 +133,9 @@
     const announcement = byId("announcement");
     const history = [];
     let model;
-    let connected = false;
+    let configured = false;
+    let signInRequired = false;
+    let sessionToken = "";
     let active = null;
     let lastReply = null;
     let composerMotion;
@@ -130,7 +149,7 @@
       const keepBottom = nearBottom();
       prompt.style.height = "24px";
       prompt.style.height = prompt.scrollHeight + "px";
-      send.disabled = !connected || !model || !prompt.value.trim();
+      send.disabled = !configured || (signInRequired && !sessionToken) || !model || !prompt.value.trim();
       send.setAttribute("aria-disabled", String(send.disabled));
       send.hidden = Boolean(active);
       stop.hidden = !active;
@@ -173,13 +192,53 @@
       document.body.classList.toggle("pause-background", !event.target.checked);
     });
 
+    const signInDialog = byId("signInDialog");
+    const password = byId("sitePassword");
+    const signInError = byId("signInError");
+    const signInSubmit = byId("signInSubmit");
+    byId("openSignIn").addEventListener("click", () => {
+      signInError.hidden = true;
+      signInDialog.showModal();
+    });
+    byId("closeSignIn").addEventListener("click", () => signInDialog.close());
+    signInDialog.addEventListener("close", () => { password.value = ""; });
+    byId("signInForm").addEventListener("submit", async event => {
+      event.preventDefault();
+      signInSubmit.disabled = true;
+      signInError.hidden = true;
+      try {
+        const response = await fetch("/api/sign-in", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password: password.value })
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error?.message ?? "Sign-in failed.");
+        sessionToken = result.token;
+        signInDialog.close();
+        refreshSignIn();
+        prompt.focus();
+      } catch (error) {
+        signInError.textContent = error.message;
+        signInError.hidden = false;
+      } finally {
+        signInSubmit.disabled = false;
+      }
+    });
+
+    function refreshSignIn() {
+      byId("signInAction").hidden = !configured || !signInRequired || Boolean(sessionToken);
+      updateComposer();
+    }
+
     async function loadModels() {
       const status = byId("connectionStatus");
       try {
         const response = await fetch("/api/models");
         if (!response.ok) throw new Error();
         const config = await response.json();
-        connected = config.configured;
+        configured = config.configured;
+        signInRequired = config.signInRequired;
         for (const option of config.models) {
           const button = document.createElement("button");
           button.className = "model-option";
@@ -201,12 +260,12 @@
           byId("modelOptions").append(button);
         }
         if (config.models.length) selectModel(config.models[0]);
-        if (!connected) status.textContent = "Set GROQ_API_KEY on the server to start chatting.";
+        if (!configured) status.textContent = "Set GROQ_API_KEY on the server to start chatting.";
       } catch {
         status.textContent = "Open Wäster through its server to connect to Groq.";
       }
       status.hidden = !status.textContent;
-      updateComposer();
+      refreshSignIn();
     }
 
     function selectModel(choice) {
@@ -230,7 +289,7 @@
     composer.addEventListener("submit", event => {
       event.preventDefault();
       const content = prompt.value.trim();
-      if (!content || active || !connected || !model) return;
+      if (!content || active || send.disabled || !model) return;
       submitMessage(content);
     });
 
@@ -310,14 +369,20 @@
       let replyText = "";
 
       try {
+        const headers = { "Content-Type": "application/json" };
+        if (sessionToken) headers.Authorization = "Bearer " + sessionToken;
         const response = await fetch(endpoint, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify({ model: selectedModel.id, messages: history }),
           signal: controller.signal
         });
         if (active !== controller) return;
         if (!response.ok) {
+          if (response.status === 401) {
+            sessionToken = "";
+            refreshSignIn();
+          }
           const payload = await response.json().catch(() => null);
           throw new Error(payload?.error?.message || "Groq returned an error (" + response.status + ").");
         }

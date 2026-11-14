@@ -23,21 +23,12 @@ Use a host that runs a Node process and streams responses. Set the start command
 - `HOST` — `0.0.0.0`.
 - `PORT` — use the port provided by the host, or leave the default of 3000.
 
-Open the host's HTTPS URL and sign in as `waster` with `WASTER_PASSWORD`. Sign-in grants access to the site and its model requests, which use your Groq account. Use HTTPS for any non-local access. Static-only hosting cannot run the Groq connection.
+Open the host's HTTPS URL, click **Sign in**, and enter `WASTER_PASSWORD`. The sign-in stays inside Wäster and grants access to model requests, which use your Groq account. The session is kept in memory and ends when you reload the page or after 12 hours. Use HTTPS for any non-local access. Static-only hosting cannot run the Groq connection.
 
 ## Google Sites
 
-Google Sites can display a hosted URL. The Node server that connects to Groq needs a separate host, such as Google Cloud Run.
-
-1. In Google Cloud, create or select a project with billing enabled. Follow the [Cloud Run Node.js quickstart](https://docs.cloud.google.com/run/docs/quickstarts/build-and-deploy/deploy-nodejs-service) from this folder. The included `package.json` gives the Node buildpack its start command.
-2. Create two [Secret Manager secrets](https://docs.cloud.google.com/run/docs/configuring/services/secrets), `waster-groq-key` and `waster-password`. Grant the Cloud Run service account Secret Manager Secret Accessor on both. Use a separate, strong password for Wäster.
-3. Deploy from this folder with the command below. It assumes both secrets are at version 1. Cloud Run supplies `PORT`; the server uses its own password prompt.
-
-   ```sh
-   gcloud run deploy waster --source . --allow-unauthenticated --set-env-vars HOST=0.0.0.0 --set-secrets GROQ_API_KEY=waster-groq-key:1,WASTER_PASSWORD=waster-password:1
-   ```
-
-4. Open the HTTPS URL that Cloud Run prints, sign in as `waster`, and send a test message.
-5. In Google Sites, choose **Pages → + → Full page embed**, paste the HTTPS URL, then publish. You can also use **Insert → Embed** to put it inside an existing page. If the browser blocks the embedded password prompt, add an **Open Wäster** button that links directly to the Cloud Run URL. See [Google Sites embed instructions](https://support.google.com/sites/answer/90569).
+1. Push this folder to your Git repository and deploy it as a [free Render Web Service](https://render.com/docs/your-first-deploy). Use `npm install` to build, `npm start` to start, and set the server environment variables above in Render.
+2. In Google Sites, choose **Pages → + → Full page embed** and paste the Render HTTPS URL. To embed in an existing page, use **Insert → Embed → By URL**. Publish the changes. [Google Sites embed instructions](https://support.google.com/sites/answer/90569)
+3. Open the published page and sign in inside the embedded Wäster app with your site password.
 
 The picker shows each model's published context window. Wäster caps replies at 4,096 tokens and sends the newest conversation messages that fit its conservative context estimate. Older messages remain visible in the conversation.
